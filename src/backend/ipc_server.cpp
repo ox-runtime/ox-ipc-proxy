@@ -7,6 +7,10 @@
 #include <cstdio>
 #include <cstring>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace ox {
 namespace ipc {
 
@@ -97,6 +101,13 @@ bool IpcServer::Initialize() {
 
 void IpcServer::Shutdown() {
     running_ = false;
+
+#ifdef _WIN32
+    if (server_thread_.joinable()) {
+        CancelSynchronousIo(server_thread_.native_handle());
+    }
+#endif
+
     control_channel_.Close();
 
     if (server_thread_.joinable()) {
