@@ -1,10 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
+#include <aclapi.h>
+#include <sddl.h>
 #include <windows.h>
 #else
 #include <fcntl.h>
@@ -13,10 +15,30 @@
 #include <unistd.h>
 #endif
 
-#include "util.h"
-
 namespace ox {
 namespace protocol {
+
+#ifdef _WIN32
+inline SECURITY_ATTRIBUTES* CreateSharedMemorySecurityAttributes() {
+    static SECURITY_ATTRIBUTES sa{};
+    static bool initialized = false;
+
+    if (initialized) {
+        return &sa;
+    }
+
+    const char* sddl = "D:P(A;;GA;;;WD)";
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorA(sddl, SDDL_REVISION_1, &sa.lpSecurityDescriptor,
+                                                              nullptr)) {
+        return nullptr;
+    }
+
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = FALSE;
+    initialized = true;
+    return &sa;
+}
+#endif
 
 // Cross-platform shared memory wrapper
 class SharedMemory {
@@ -36,7 +58,7 @@ class SharedMemory {
         size_ = size;
 
 #ifdef _WIN32
-        SECURITY_ATTRIBUTES* sa = create_new ? CreateOwnerOnlySecurityAttributes() : nullptr;
+        SECURITY_ATTRIBUTES* sa = create_new ? CreateSharedMemorySecurityAttributes() : nullptr;
 
         if (create_new) {
             handle_ = CreateFileMappingA(INVALID_HANDLE_VALUE, sa, PAGE_READWRITE, 0, static_cast<DWORD>(size), name);

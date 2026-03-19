@@ -18,10 +18,12 @@ cmake --build build/win-x64 --config Release
 
 Artifacts are written under `build/<platform>/bin`:
 
-- `ox_ipc_frontend.{dll|so|dylib}`
-- `ox_ipc_backend.{dll|so|dylib}`
+- `ox_ipc_frontend.dll` (Windows), `libox_ipc_frontend.so` (Linux), `libox_ipc_frontend.dylib` (macOS)
+- `ox_ipc_backend.dll` (Windows), `libox_ipc_backend.so` (Linux), `libox_ipc_backend.dylib` (macOS)
+
+The libraries use OS-native naming conventions and do not include version suffixes.
 
 ## Integration
 
 - `ox-runtime` loads `ox_ipc_frontend` as its default driver when no explicit override is present.
-- `ox.exe` loads `ox_ipc_backend`, calls `set_driver()` with the selected real driver callback table, then calls `initialize()` to start serving clients.
+- `ox.exe` loads `ox_ipc_backend`, calls `ox_ipc_backend_set_driver()` with the selected real driver callback table, then calls `ox_ipc_backend_initialize()` to start serving clients.

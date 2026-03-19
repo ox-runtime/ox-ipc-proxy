@@ -11,8 +11,14 @@ namespace ipc {
 
 static constexpr uint32_t PROTOCOL_VERSION = 1;
 static constexpr const char* SHARED_MEMORY_NAME = "ox_ipc_proxy_shm";
-static constexpr const char* CONTROL_CHANNEL_NAME = "ox_ipc_proxy_control";
-static constexpr uint32_t MAX_INTERACTION_PROFILES = 8;
+static constexpr uint32_t MAX_INTERACTION_PROFILES = 16;
+constexpr uint32_t MAX_INPUT_SLOTS = 64;
+
+#ifdef _WIN32
+static constexpr const char* CONTROL_CHANNEL_URL = "ipc://ox_ipc_proxy_control";
+#else
+static constexpr const char* CONTROL_CHANNEL_URL = "ipc:///tmp/ox_ipc_proxy_control.ipc";
+#endif
 
 enum class MessageType : uint32_t {
     CONNECT = 1,
@@ -21,11 +27,15 @@ enum class MessageType : uint32_t {
     GET_DISPLAY_PROPERTIES = 4,
     GET_TRACKING_CAPABILITIES = 5,
     GET_INTERACTION_PROFILES = 6,
-    GET_INPUT_STATE_BOOLEAN = 7,
-    GET_INPUT_STATE_FLOAT = 8,
-    GET_INPUT_STATE_VECTOR2F = 9,
     NOTIFY_SESSION_STATE = 10,
+    REGISTER_INPUT = 11,
     RESPONSE = 100,
+};
+
+enum class InputSlotType : uint32_t {
+    BOOLEAN = 0,
+    FLOAT = 1,
+    VECTOR2F = 2,
 };
 
 struct MessageHeader {
@@ -40,25 +50,15 @@ struct InteractionProfilesResponse {
     char profiles[MAX_INTERACTION_PROFILES][128];
 };
 
-struct InputStateRequest {
+struct RegisterInputRequest {
     char user_path[256];
     char component_path[128];
-    int64_t predicted_time;
+    InputSlotType type;
+    uint32_t padding;
 };
 
-struct InputStateBooleanResponse {
-    uint32_t is_available;
-    uint32_t value;
-};
-
-struct InputStateFloatResponse {
-    uint32_t is_available;
-    float value;
-};
-
-struct InputStateVector2fResponse {
-    uint32_t is_available;
-    OxVector2f value;
+struct RegisterInputResponse {
+    uint32_t slot_index;
 };
 
 struct SessionStateNotification {
@@ -66,22 +66,45 @@ struct SessionStateNotification {
 };
 
 struct alignas(64) PoseState {
+    std::atomic<uint32_t> seq;
+    uint32_t padding0[15];
     OxPose pose;
     uint64_t timestamp;
-    std::atomic<uint32_t> flags;
-    uint32_t padding[3];
+    uint32_t padding1[6];
 };
 
-struct DeviceState {
+struct alignas(64) DeviceState {
+    std::atomic<uint32_t> seq;
+    uint32_t padding0[15];
     char user_path[256];
-    PoseState pose;
+    OxPose pose;
+    uint64_t timestamp;
     uint32_t is_active;
-    uint32_t padding;
+    uint32_t padding1[7];
 };
 
 struct ViewState {
     PoseState pose;
     OxFov fov;
+};
+
+struct alignas(64) InputSlot {
+    char user_path[256];
+    char component_path[128];
+    InputSlotType type;
+    std::atomic<uint32_t> is_available;
+    union {
+        uint32_t bool_value;
+        float float_value;
+        OxVector2f vec2f_value;
+    };
+    uint32_t padding[2];
+};
+
+struct alignas(64) InputStateTable {
+    std::atomic<uint32_t> slot_count;
+    uint32_t padding[15];
+    InputSlot slots[MAX_INPUT_SLOTS];
 };
 
 constexpr uint32_t MAX_TEXTURE_WIDTH = 2048;
@@ -117,6 +140,7 @@ struct alignas(4096) SharedData {
     std::atomic<uint32_t> frontend_connected;
     uint32_t padding1;
     FrameState frame_state;
+    InputStateTable input_state;
 };
 
 static_assert(alignof(SharedData) == 4096, "SharedData alignment is not 4096 bytes");

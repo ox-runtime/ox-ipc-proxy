@@ -9,9 +9,9 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT TARGET spdlog::spdlog)
-    include(FetchContent)
+include(FetchContent)
 
+if(NOT TARGET spdlog::spdlog)
     FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog
@@ -21,43 +21,85 @@ if(NOT TARGET spdlog::spdlog)
     FetchContent_MakeAvailable(spdlog)
 endif()
 
-if(WIN32)
-    set(IPC_PROXY_LIBS)
-elseif(APPLE)
-    set(IPC_PROXY_LIBS pthread)
-else()
-    set(IPC_PROXY_LIBS pthread rt dl)
+if(NOT TARGET nng AND NOT TARGET nng::nng)
+    FetchContent_Declare(
+        nng
+        GIT_REPOSITORY https://github.com/nanomsg/nng
+        GIT_TAG v1.10.1
+        GIT_SHALLOW true
+    )
+    set(NNG_TESTS OFF CACHE BOOL "" FORCE)
+    set(NNG_TOOLS OFF CACHE BOOL "" FORCE)
+    set(NNG_ENABLE_STATS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(nng)
 endif()
 
-set(COMMON_SOURCES)
+if(TARGET nng::nng)
+    set(OX_IPC_NNG_TARGET nng::nng)
+else()
+    set(OX_IPC_NNG_TARGET nng)
+endif()
+
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest
+    GIT_TAG v1.16.0
+    GIT_SHALLOW true
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+add_library(ox_ipc_frontend_obj OBJECT
+    src/ipc_client.cpp
+)
+
+target_include_directories(ox_ipc_frontend_obj PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(ox_ipc_frontend_obj PUBLIC spdlog::spdlog ${OX_IPC_NNG_TARGET})
 
 add_library(ox_ipc_frontend SHARED
-    ${COMMON_SOURCES}
-    src/frontend/ipc_client.cpp
-    src/frontend/driver_frontend.cpp
+    $<TARGET_OBJECTS:ox_ipc_frontend_obj>
 )
 
-target_include_directories(ox_ipc_frontend PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend
-)
-
-target_link_libraries(ox_ipc_frontend PRIVATE spdlog::spdlog ${IPC_PROXY_LIBS})
+target_link_libraries(ox_ipc_frontend PRIVATE ox_ipc_frontend_obj)
 
 add_library(ox_ipc_backend SHARED
-    ${COMMON_SOURCES}
-    src/backend/ipc_server.cpp
-    src/backend/backend_exports.cpp
+    src/ipc_server.cpp
 )
 
 target_include_directories(ox_ipc_backend PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/backend
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(ox_ipc_backend PRIVATE spdlog::spdlog ${IPC_PROXY_LIBS})
+target_link_libraries(ox_ipc_backend PRIVATE spdlog::spdlog ${OX_IPC_NNG_TARGET})
+
+add_executable(ipc_proxy_tests
+    tests/test_lifecycle.cpp
+    tests/test_metadata.cpp
+    tests/test_input.cpp
+    tests/test_session.cpp
+    tests/test_frame.cpp
+    src/ipc_server.cpp
+    $<TARGET_OBJECTS:ox_ipc_frontend_obj>
+)
+
+target_include_directories(ipc_proxy_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+target_link_libraries(ipc_proxy_tests PRIVATE spdlog::spdlog ${OX_IPC_NNG_TARGET} GTest::gtest GTest::gtest_main)
+
+if(WIN32)
+    target_compile_definitions(ox_ipc_backend PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_definitions(ox_ipc_frontend_obj PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_definitions(ipc_proxy_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+endif()
 
 function(configure_proxy_target target output_name)
     set_target_properties(${target} PROPERTIES
@@ -82,3 +124,12 @@ endfunction()
 
 configure_proxy_target(ox_ipc_frontend "ox_ipc_frontend")
 configure_proxy_target(ox_ipc_backend "ox_ipc_backend")
+
+set_target_properties(ipc_proxy_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/tests
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/tests
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/tests
+)
+
+enable_testing()
+add_test(NAME ipc_proxy_tests COMMAND ipc_proxy_tests)
