@@ -240,7 +240,7 @@ static bool Connect() {
         return false;
     }
 
-    rv = nng_setopt_ms(g_sock, NNG_OPT_SENDTIMEO, 5000);
+    rv = nng_socket_set_ms(g_sock, NNG_OPT_SENDTIMEO, 5000);
     if (rv != 0) {
         spdlog::error("Failed to set nng send timeout: {}", nng_strerror(rv));
         nng_close(g_sock);
@@ -250,7 +250,7 @@ static bool Connect() {
         return false;
     }
 
-    rv = nng_setopt_ms(g_sock, NNG_OPT_RECVTIMEO, 5000);
+    rv = nng_socket_set_ms(g_sock, NNG_OPT_RECVTIMEO, 5000);
     if (rv != 0) {
         spdlog::error("Failed to set nng recv timeout: {}", nng_strerror(rv));
         nng_close(g_sock);
