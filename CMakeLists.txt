@@ -6,6 +6,10 @@ if(WIN32 AND MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+if(NOT WIN32)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -18,6 +22,9 @@ if(NOT TARGET spdlog::spdlog)
         GIT_TAG v1.17.0
         GIT_SHALLOW true
     )
+    if(NOT WIN32)
+        set(SPDLOG_BUILD_PIC ON CACHE BOOL "" FORCE)
+    endif()
     FetchContent_MakeAvailable(spdlog)
 endif()
 
