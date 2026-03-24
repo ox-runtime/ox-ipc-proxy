@@ -18,9 +18,9 @@ add_executable(ipc_proxy_tests
 )
 
 target_include_directories(ipc_proxy_tests PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${CMAKE_CURRENT_SOURCE_DIR}/../src
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${OX_DRIVER_INCLUDE_DIR}
 )
 
 target_link_libraries(ipc_proxy_tests PRIVATE spdlog::spdlog ${OX_IPC_NNG_TARGET} GTest::gtest GTest::gtest_main)

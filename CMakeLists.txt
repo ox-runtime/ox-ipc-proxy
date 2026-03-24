@@ -15,6 +15,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
+set(OX_DRIVER_HEADER_LOCAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ox_driver.h")
+if(EXISTS "${OX_DRIVER_HEADER_LOCAL_PATH}")
+    set(OX_DRIVER_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+else()
+    FetchContent_Declare(
+        ox_driver_header
+        URL https://github.com/ox-runtime/ox-runtime/releases/latest/download/ox_driver.h
+        DOWNLOAD_NO_EXTRACT TRUE
+        DOWNLOAD_NAME ox_driver.h
+    )
+    FetchContent_GetProperties(ox_driver_header)
+    if(NOT ox_driver_header_POPULATED)
+        FetchContent_Populate(ox_driver_header)
+    endif()
+    set(OX_DRIVER_INCLUDE_DIR "${ox_driver_header_SOURCE_DIR}")
+endif()
+
 if(NOT TARGET spdlog::spdlog)
     FetchContent_Declare(
         spdlog
@@ -52,8 +69,8 @@ add_library(ox_ipc_frontend_obj OBJECT
 )
 
 target_include_directories(ox_ipc_frontend_obj PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${OX_DRIVER_INCLUDE_DIR}
 )
 
 target_link_libraries(ox_ipc_frontend_obj PUBLIC spdlog::spdlog ${OX_IPC_NNG_TARGET})
@@ -69,8 +86,8 @@ add_library(ox_ipc_backend SHARED
 )
 
 target_include_directories(ox_ipc_backend PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${OX_DRIVER_INCLUDE_DIR}
 )
 
 target_link_libraries(ox_ipc_backend PRIVATE spdlog::spdlog ${OX_IPC_NNG_TARGET})
