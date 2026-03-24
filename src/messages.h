@@ -23,9 +23,7 @@ static constexpr const char* CONTROL_CHANNEL_URL = "ipc:///tmp/ox_ipc_proxy_cont
 enum class MessageType : uint32_t {
     CONNECT = 1,
     DISCONNECT = 2,
-    GET_DEVICE_INFO = 3,
-    GET_DISPLAY_PROPERTIES = 4,
-    GET_TRACKING_CAPABILITIES = 5,
+    GET_SYSTEM_PROPERTIES = 3,
     GET_INTERACTION_PROFILES = 6,
     NOTIFY_SESSION_STATE = 10,
     REGISTER_INPUT = 11,

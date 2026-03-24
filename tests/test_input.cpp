@@ -6,10 +6,9 @@ TEST_F(IpcTest, Input_Boolean_AvailableAndCorrectValue) {
     Start();
     WaitForFrame();
 
-    uint32_t value = 0;
-    EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/trigger/click", &value),
-              OX_COMPONENT_AVAILABLE);
-    EXPECT_EQ(value, 1u);
+    XrBool32 value = XR_FALSE;
+    EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/trigger/click", &value), XR_SUCCESS);
+    EXPECT_EQ(value, XR_TRUE);
 }
 
 TEST_F(IpcTest, Input_Boolean_UnavailableComponent) {
@@ -18,18 +17,18 @@ TEST_F(IpcTest, Input_Boolean_UnavailableComponent) {
     Start();
     WaitForFrame();
 
-    uint32_t value = 0;
+    XrBool32 value = XR_FALSE;
     EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/trigger/click", &value),
-              OX_COMPONENT_UNAVAILABLE);
+              XR_ERROR_PATH_UNSUPPORTED);
 }
 
 TEST_F(IpcTest, Input_Boolean_UnknownPath_ReturnsUnavailable) {
     Start();
     WaitForFrame();
 
-    uint32_t value = 0;
+    XrBool32 value = XR_FALSE;
     EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/x/click", &value),
-              OX_COMPONENT_UNAVAILABLE);
+              XR_ERROR_PATH_UNSUPPORTED);
 }
 
 TEST_F(IpcTest, Input_Float_CorrectValue) {
@@ -39,8 +38,7 @@ TEST_F(IpcTest, Input_Float_CorrectValue) {
     WaitForFrame();
 
     float value = 0.0f;
-    EXPECT_EQ(driver().get_input_state_float(0, "/user/hand/right", "/input/trigger/value", &value),
-              OX_COMPONENT_AVAILABLE);
+    EXPECT_EQ(driver().get_input_state_float(0, "/user/hand/right", "/input/trigger/value", &value), XR_SUCCESS);
     EXPECT_NEAR(value, 0.75f, 1e-5f);
 }
 
@@ -62,8 +60,7 @@ TEST_F(IpcTest, Input_Vector2f_CorrectValue) {
     WaitForFrame();
 
     XrVector2f value{};
-    EXPECT_EQ(driver().get_input_state_vector2f(0, "/user/hand/left", "/input/thumbstick", &value),
-              OX_COMPONENT_AVAILABLE);
+    EXPECT_EQ(driver().get_input_state_vector2f(0, "/user/hand/left", "/input/thumbstick", &value), XR_SUCCESS);
     EXPECT_NEAR(value.x, 0.5f, 1e-5f);
     EXPECT_NEAR(value.y, -0.3f, 1e-5f);
 }

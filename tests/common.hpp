@@ -93,31 +93,23 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
     callbacks.shutdown = []() {};
     callbacks.is_device_connected = []() -> int { return 1; };
 
-    callbacks.get_device_info = [](OxDeviceInfo* info) {
-        std::snprintf(info->name, sizeof(info->name), "%s", g_mock->device_name.c_str());
-        std::snprintf(info->manufacturer, sizeof(info->manufacturer), "%s", g_mock->manufacturer.c_str());
-        std::snprintf(info->serial, sizeof(info->serial), "%s", g_mock->serial.c_str());
-        info->vendor_id = g_mock->vendor_id;
-        info->product_id = g_mock->product_id;
+    callbacks.get_system_properties = [](XrSystemProperties* props) {
+        if (!props) return;
+        void* next = props->next;
+        props->vendorId = g_mock->vendor_id;
+        std::snprintf(props->systemName, XR_MAX_SYSTEM_NAME_SIZE, "%s", g_mock->device_name.c_str());
+        props->graphicsProperties.maxSwapchainImageWidth = g_mock->display_width;
+        props->graphicsProperties.maxSwapchainImageHeight = g_mock->display_height;
+        props->graphicsProperties.maxLayerCount = 16;
+        props->trackingProperties.orientationTracking = g_mock->has_orientation ? XR_TRUE : XR_FALSE;
+        props->trackingProperties.positionTracking = g_mock->has_position ? XR_TRUE : XR_FALSE;
+        props->next = next;
     };
 
-    callbacks.get_display_properties = [](OxDisplayProperties* props) {
-        props->display_width = g_mock->display_width;
-        props->display_height = g_mock->display_height;
-        props->recommended_width = g_mock->display_width;
-        props->recommended_height = g_mock->display_height;
-        props->refresh_rate = g_mock->refresh_rate;
-        props->fov = g_mock->fov;
-    };
-
-    callbacks.get_tracking_capabilities = [](OxTrackingCapabilities* caps) {
-        caps->has_position_tracking = g_mock->has_position;
-        caps->has_orientation_tracking = g_mock->has_orientation;
-    };
-
-    callbacks.update_view_pose = [](XrTime, uint32_t eye_index, XrPosef* out_pose) {
-        if (eye_index < 2 && out_pose) {
-            *out_pose = g_mock->view_pose[eye_index];
+    callbacks.update_view = [](XrTime, uint32_t eye_index, XrView* out_view) {
+        if (eye_index < 2 && out_view) {
+            out_view->pose = g_mock->view_pose[eye_index];
+            out_view->fov = {-0.785398f, 0.785398f, 0.785398f, -0.785398f};
         }
     };
 
@@ -142,39 +134,39 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
     callbacks.on_session_state_changed = [](XrSessionState state) { g_mock->last_session_state = state; };
 
     callbacks.get_input_state_boolean = [](XrTime, const char* user_path, const char* component_path,
-                                           uint32_t* out_value) -> OxComponentResult {
+                                           XrBool32* out_value) -> XrResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
-            return OX_COMPONENT_UNAVAILABLE;
+            return XR_ERROR_PATH_UNSUPPORTED;
         }
         if (out_value) {
-            *out_value = found->second.value.b;
+            *out_value = found->second.value.b ? XR_TRUE : XR_FALSE;
         }
-        return OX_COMPONENT_AVAILABLE;
+        return XR_SUCCESS;
     };
 
     callbacks.get_input_state_float = [](XrTime, const char* user_path, const char* component_path,
-                                         float* out_value) -> OxComponentResult {
+                                         float* out_value) -> XrResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
-            return OX_COMPONENT_UNAVAILABLE;
+            return XR_ERROR_PATH_UNSUPPORTED;
         }
         if (out_value) {
             *out_value = found->second.value.f;
         }
-        return OX_COMPONENT_AVAILABLE;
+        return XR_SUCCESS;
     };
 
     callbacks.get_input_state_vector2f = [](XrTime, const char* user_path, const char* component_path,
-                                            XrVector2f* out_value) -> OxComponentResult {
+                                            XrVector2f* out_value) -> XrResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
-            return OX_COMPONENT_UNAVAILABLE;
+            return XR_ERROR_PATH_UNSUPPORTED;
         }
         if (out_value) {
             *out_value = found->second.value.v;
         }
-        return OX_COMPONENT_AVAILABLE;
+        return XR_SUCCESS;
     };
 
     return callbacks;

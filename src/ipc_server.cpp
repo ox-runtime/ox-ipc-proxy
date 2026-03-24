@@ -123,10 +123,9 @@ void UpdateInputSlot(InputSlot& slot, const OxDriverCallbacks& callbacks, int64_
                 slot.is_available.store(0, std::memory_order_release);
                 return;
             }
-            uint32_t value = 0;
-            const bool available =
-                callbacks.get_input_state_boolean(predicted_time, slot.user_path, slot.component_path, &value) ==
-                OX_COMPONENT_AVAILABLE;
+            XrBool32 value = XR_FALSE;
+            const bool available = callbacks.get_input_state_boolean(predicted_time, slot.user_path,
+                                                                     slot.component_path, &value) == XR_SUCCESS;
             slot.bool_value = value;
             slot.is_available.store(available ? 1u : 0u, std::memory_order_release);
             return;
@@ -138,7 +137,7 @@ void UpdateInputSlot(InputSlot& slot, const OxDriverCallbacks& callbacks, int64_
             }
             float value = 0.0f;
             const bool available = callbacks.get_input_state_float(predicted_time, slot.user_path, slot.component_path,
-                                                                   &value) == OX_COMPONENT_AVAILABLE;
+                                                                   &value) == XR_SUCCESS;
             slot.float_value = value;
             slot.is_available.store(available ? 1u : 0u, std::memory_order_release);
             return;
@@ -149,9 +148,8 @@ void UpdateInputSlot(InputSlot& slot, const OxDriverCallbacks& callbacks, int64_
                 return;
             }
             XrVector2f value{};
-            const bool available =
-                callbacks.get_input_state_vector2f(predicted_time, slot.user_path, slot.component_path, &value) ==
-                OX_COMPONENT_AVAILABLE;
+            const bool available = callbacks.get_input_state_vector2f(predicted_time, slot.user_path,
+                                                                      slot.component_path, &value) == XR_SUCCESS;
             slot.vec2f_value = value;
             slot.is_available.store(available ? 1u : 0u, std::memory_order_release);
             return;
@@ -176,22 +174,10 @@ static void HandleDisconnect(const MessageHeader& request) { SendEmpty(g_sock, r
 
 static void HandleMetadataRequest(const MessageHeader& request, MessageType type) {
     switch (type) {
-        case MessageType::GET_DEVICE_INFO: {
-            OxDeviceInfo info{};
-            g_driver_callbacks.get_device_info(&info);
-            SendPayload(g_sock, request, info);
-            break;
-        }
-        case MessageType::GET_DISPLAY_PROPERTIES: {
-            OxDisplayProperties props{};
-            g_driver_callbacks.get_display_properties(&props);
+        case MessageType::GET_SYSTEM_PROPERTIES: {
+            XrSystemProperties props{XR_TYPE_SYSTEM_PROPERTIES};
+            g_driver_callbacks.get_system_properties(&props);
             SendPayload(g_sock, request, props);
-            break;
-        }
-        case MessageType::GET_TRACKING_CAPABILITIES: {
-            OxTrackingCapabilities caps{};
-            g_driver_callbacks.get_tracking_capabilities(&caps);
-            SendPayload(g_sock, request, caps);
             break;
         }
         case MessageType::GET_INTERACTION_PROFILES: {
@@ -304,9 +290,7 @@ static void ServerLoop() {
                 }
                 HandleDisconnect(header);
                 break;
-            case MessageType::GET_DEVICE_INFO:
-            case MessageType::GET_DISPLAY_PROPERTIES:
-            case MessageType::GET_TRACKING_CAPABILITIES:
+            case MessageType::GET_SYSTEM_PROPERTIES:
             case MessageType::GET_INTERACTION_PROFILES:
                 HandleMetadataRequest(header, header.type);
                 break;
@@ -338,15 +322,12 @@ static void FrameLoop() {
             frame.predicted_display_time.store(predicted_time, std::memory_order_release);
             frame.view_count.store(2, std::memory_order_release);
 
-            OxDisplayProperties display_props{};
-            g_driver_callbacks.get_display_properties(&display_props);
-
             for (uint32_t eye_index = 0; eye_index < 2; ++eye_index) {
-                XrPosef pose{};
-                g_driver_callbacks.update_view_pose(predicted_time, eye_index, &pose);
-                auto& view = frame.views[eye_index];
-                WritePose(view.pose, pose, static_cast<uint64_t>(predicted_time));
-                view.fov = display_props.fov;
+                XrView view{XR_TYPE_VIEW};
+                g_driver_callbacks.update_view(predicted_time, eye_index, &view);
+                auto& shared_view = frame.views[eye_index];
+                WritePose(shared_view.pose, view.pose, static_cast<uint64_t>(predicted_time));
+                shared_view.fov = view.fov;
             }
 
             uint32_t device_count = 0;
@@ -405,8 +386,7 @@ bool Initialize() {
     }
 
     if (!g_driver_set || !g_driver_callbacks.initialize || !g_driver_callbacks.is_device_connected ||
-        !g_driver_callbacks.get_device_info || !g_driver_callbacks.get_display_properties ||
-        !g_driver_callbacks.get_tracking_capabilities || !g_driver_callbacks.update_view_pose) {
+        !g_driver_callbacks.get_system_properties || !g_driver_callbacks.update_view) {
         spdlog::error("IPC backend driver is not configured correctly");
         return false;
     }

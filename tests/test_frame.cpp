@@ -6,11 +6,11 @@ TEST_F(IpcTest, ViewPose_LeftEye_ReturnsDriverValues) {
     Start();
     WaitForFrame();
 
-    XrPosef pose{};
-    driver().update_view_pose(0, 0, &pose);
-    EXPECT_NEAR(pose.position.x, 1.0f, 1e-5f);
-    EXPECT_NEAR(pose.position.y, 2.0f, 1e-5f);
-    EXPECT_NEAR(pose.position.z, -3.0f, 1e-5f);
+    XrView view{XR_TYPE_VIEW};
+    driver().update_view(0, 0, &view);
+    EXPECT_NEAR(view.pose.position.x, 1.0f, 1e-5f);
+    EXPECT_NEAR(view.pose.position.y, 2.0f, 1e-5f);
+    EXPECT_NEAR(view.pose.position.z, -3.0f, 1e-5f);
 }
 
 TEST_F(IpcTest, ViewPose_RightEye_ReturnsDriverValues) {
@@ -19,16 +19,16 @@ TEST_F(IpcTest, ViewPose_RightEye_ReturnsDriverValues) {
     Start();
     WaitForFrame();
 
-    XrPosef pose{};
-    driver().update_view_pose(0, 1, &pose);
-    EXPECT_NEAR(pose.position.x, -0.032f, 1e-4f);
+    XrView view{XR_TYPE_VIEW};
+    driver().update_view(0, 1, &view);
+    EXPECT_NEAR(view.pose.position.x, -0.032f, 1e-4f);
 }
 
 TEST_F(IpcTest, ViewPose_InvalidEyeIndex_DoesNotCrash) {
     Start();
 
-    XrPosef pose{};
-    EXPECT_NO_FATAL_FAILURE(driver().update_view_pose(0, 99, &pose));
+    XrView view{XR_TYPE_VIEW};
+    EXPECT_NO_FATAL_FAILURE(driver().update_view(0, 99, &view));
 }
 
 TEST_F(IpcTest, UpdateDevices_ReturnsAllDevices) {

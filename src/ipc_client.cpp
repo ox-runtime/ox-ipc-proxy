@@ -24,9 +24,7 @@ static nng_socket g_sock = NNG_SOCKET_INITIALIZER;
 static SharedData* g_shared_data = nullptr;
 static bool g_connected = false;
 static uint32_t g_sequence = 1;
-static OxDeviceInfo g_device_info{};
-static OxDisplayProperties g_display_props{};
-static OxTrackingCapabilities g_tracking_caps{};
+static XrSystemProperties g_system_properties{XR_TYPE_SYSTEM_PROPERTIES};
 static InteractionProfilesResponse g_interaction_profiles{};
 static std::vector<std::string> g_interaction_profile_storage;
 static std::map<std::string, uint32_t> g_input_slot_cache;
@@ -160,13 +158,7 @@ static bool SendRequestLocked(MessageType type, const void* payload, uint32_t pa
 }
 
 static bool QueryMetadata() {
-    if (!SendRequestLocked(MessageType::GET_DEVICE_INFO, nullptr, 0, &g_device_info)) {
-        return false;
-    }
-    if (!SendRequestLocked(MessageType::GET_DISPLAY_PROPERTIES, nullptr, 0, &g_display_props)) {
-        return false;
-    }
-    if (!SendRequestLocked(MessageType::GET_TRACKING_CAPABILITIES, nullptr, 0, &g_tracking_caps)) {
+    if (!SendRequestLocked(MessageType::GET_SYSTEM_PROPERTIES, nullptr, 0, &g_system_properties)) {
         return false;
     }
     if (!SendRequestLocked(MessageType::GET_INTERACTION_PROFILES, nullptr, 0, &g_interaction_profiles)) {
@@ -331,34 +323,23 @@ static int IsConnected() {
     return g_connected ? 1 : 0;
 }
 
-static void GetDeviceInfo(OxDeviceInfo* info) {
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (info) {
-        *info = g_device_info;
-    }
-}
-
-static void GetDisplayProperties(OxDisplayProperties* props) {
+static void GetSystemProperties(XrSystemProperties* props) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (props) {
-        *props = g_display_props;
+        void* next = props->next;
+        *props = g_system_properties;
+        props->next = next;
     }
 }
 
-static void GetTrackingCapabilities(OxTrackingCapabilities* caps) {
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (caps) {
-        *caps = g_tracking_caps;
-    }
-}
-
-static void UpdateViewPose(XrTime predicted_time, uint32_t eye_index, XrPosef* out_pose) {
+static void UpdateView(XrTime predicted_time, uint32_t eye_index, XrView* out_view) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
-    if (!g_connected || !g_shared_data || !out_pose || eye_index >= 2) {
+    if (!g_connected || !g_shared_data || !out_view || eye_index >= 2) {
         return;
     }
-    *out_pose = ReadPose(g_shared_data->frame_state.views[eye_index].pose);
+    out_view->pose = ReadPose(g_shared_data->frame_state.views[eye_index].pose);
+    out_view->fov = g_shared_data->frame_state.views[eye_index].fov;
 }
 
 static void UpdateDevices(XrTime predicted_time, OxDeviceState* out_states, uint32_t* out_count) {
@@ -386,61 +367,61 @@ static void UpdateDevices(XrTime predicted_time, OxDeviceState* out_states, uint
     }
 }
 
-static OxComponentResult GetInputStateBoolean(XrTime predicted_time, const char* user_path, const char* component_path,
-                                              uint32_t* out_value) {
+static XrResult GetInputStateBoolean(XrTime predicted_time, const char* user_path, const char* component_path,
+                                     XrBool32* out_value) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
     if (!g_connected || !g_shared_data) {
-        return OX_COMPONENT_UNAVAILABLE;
+        return XR_ERROR_PATH_UNSUPPORTED;
     }
     const uint32_t index = EnsureInputRegistered(user_path, component_path, InputSlotType::BOOLEAN);
     if (index >= MAX_INPUT_SLOTS) {
-        return OX_COMPONENT_UNAVAILABLE;
+        return XR_ERROR_PATH_UNSUPPORTED;
     }
     const auto& slot = g_shared_data->input_state.slots[index];
     const bool available = slot.is_available.load(std::memory_order_acquire) != 0;
     if (out_value && available) {
-        *out_value = slot.bool_value;
+        *out_value = slot.bool_value ? XR_TRUE : XR_FALSE;
     }
-    return available ? OX_COMPONENT_AVAILABLE : OX_COMPONENT_UNAVAILABLE;
+    return available ? XR_SUCCESS : XR_ERROR_PATH_UNSUPPORTED;
 }
 
-static OxComponentResult GetInputStateFloat(XrTime predicted_time, const char* user_path, const char* component_path,
-                                            float* out_value) {
+static XrResult GetInputStateFloat(XrTime predicted_time, const char* user_path, const char* component_path,
+                                   float* out_value) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
     if (!g_connected || !g_shared_data) {
-        return OX_COMPONENT_UNAVAILABLE;
+        return XR_ERROR_PATH_UNSUPPORTED;
     }
     const uint32_t index = EnsureInputRegistered(user_path, component_path, InputSlotType::FLOAT);
     if (index >= MAX_INPUT_SLOTS) {
-        return OX_COMPONENT_UNAVAILABLE;
+        return XR_ERROR_PATH_UNSUPPORTED;
     }
     const auto& slot = g_shared_data->input_state.slots[index];
     const bool available = slot.is_available.load(std::memory_order_acquire) != 0;
     if (out_value && available) {
         *out_value = slot.float_value;
     }
-    return available ? OX_COMPONENT_AVAILABLE : OX_COMPONENT_UNAVAILABLE;
+    return available ? XR_SUCCESS : XR_ERROR_PATH_UNSUPPORTED;
 }
 
-static OxComponentResult GetInputStateVector2f(XrTime predicted_time, const char* user_path, const char* component_path,
-                                               XrVector2f* out_value) {
+static XrResult GetInputStateVector2f(XrTime predicted_time, const char* user_path, const char* component_path,
+                                      XrVector2f* out_value) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
     if (!g_connected || !g_shared_data) {
-        return OX_COMPONENT_UNAVAILABLE;
+        return XR_ERROR_PATH_UNSUPPORTED;
     }
     const uint32_t index = EnsureInputRegistered(user_path, component_path, InputSlotType::VECTOR2F);
     if (index >= MAX_INPUT_SLOTS) {
-        return OX_COMPONENT_UNAVAILABLE;
+        return XR_ERROR_PATH_UNSUPPORTED;
     }
     const auto& slot = g_shared_data->input_state.slots[index];
     const bool available = slot.is_available.load(std::memory_order_acquire) != 0;
     if (out_value && available) {
         *out_value = slot.vec2f_value;
     }
-    return available ? OX_COMPONENT_AVAILABLE : OX_COMPONENT_UNAVAILABLE;
+    return available ? XR_SUCCESS : XR_ERROR_PATH_UNSUPPORTED;
 }
 
 static uint32_t GetInteractionProfiles(const char** profiles, uint32_t max_profiles) {
@@ -493,10 +474,8 @@ extern "C" OX_DRIVER_EXPORT int ox_driver_register(OxDriverCallbacks* callbacks)
     callbacks->initialize = []() -> int { return ox::ipc::Connect() ? 1 : 0; };
     callbacks->shutdown = ox::ipc::Disconnect;
     callbacks->is_device_connected = ox::ipc::IsConnected;
-    callbacks->get_device_info = ox::ipc::GetDeviceInfo;
-    callbacks->get_display_properties = ox::ipc::GetDisplayProperties;
-    callbacks->get_tracking_capabilities = ox::ipc::GetTrackingCapabilities;
-    callbacks->update_view_pose = ox::ipc::UpdateViewPose;
+    callbacks->get_system_properties = ox::ipc::GetSystemProperties;
+    callbacks->update_view = ox::ipc::UpdateView;
     callbacks->update_devices = ox::ipc::UpdateDevices;
     callbacks->get_input_state_boolean = ox::ipc::GetInputStateBoolean;
     callbacks->get_input_state_float = ox::ipc::GetInputStateFloat;

@@ -1,43 +1,23 @@
 #include "common.hpp"
 
-TEST_F(IpcTest, DeviceInfo_ReturnsExactValues) {
+TEST_F(IpcTest, SystemProperties_ReturnsExactValues) {
     mock.device_name = "Oculus Quest 3";
-    mock.manufacturer = "Meta";
-    mock.serial = "OQ3-9876";
-
-    Start();
-
-    OxDeviceInfo info{};
-    driver().get_device_info(&info);
-    EXPECT_STREQ(info.name, "Oculus Quest 3");
-    EXPECT_STREQ(info.manufacturer, "Meta");
-    EXPECT_STREQ(info.serial, "OQ3-9876");
-}
-
-TEST_F(IpcTest, DisplayProperties_ReturnsExactValues) {
+    mock.vendor_id = 0xFB;
     mock.display_width = 2448;
     mock.display_height = 2448;
-    mock.refresh_rate = 120.0f;
-
-    Start();
-
-    OxDisplayProperties props{};
-    driver().get_display_properties(&props);
-    EXPECT_EQ(props.display_width, 2448u);
-    EXPECT_EQ(props.display_height, 2448u);
-    EXPECT_FLOAT_EQ(props.refresh_rate, 120.0f);
-}
-
-TEST_F(IpcTest, TrackingCapabilities_NoPositionTracking) {
-    mock.has_position = 0;
+    mock.has_position = 1;
     mock.has_orientation = 1;
 
     Start();
 
-    OxTrackingCapabilities caps{};
-    driver().get_tracking_capabilities(&caps);
-    EXPECT_EQ(caps.has_position_tracking, 0u);
-    EXPECT_EQ(caps.has_orientation_tracking, 1u);
+    XrSystemProperties props{XR_TYPE_SYSTEM_PROPERTIES};
+    driver().get_system_properties(&props);
+    EXPECT_STREQ(props.systemName, "Oculus Quest 3");
+    EXPECT_EQ(props.vendorId, 0xFBu);
+    EXPECT_EQ(props.graphicsProperties.maxSwapchainImageWidth, 2448u);
+    EXPECT_EQ(props.graphicsProperties.maxSwapchainImageHeight, 2448u);
+    EXPECT_EQ(props.trackingProperties.positionTracking, XR_TRUE);
+    EXPECT_EQ(props.trackingProperties.orientationTracking, XR_TRUE);
 }
 
 TEST_F(IpcTest, InteractionProfiles_ReturnsAllProfiles) {
