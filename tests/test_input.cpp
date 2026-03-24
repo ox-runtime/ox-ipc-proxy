@@ -61,7 +61,7 @@ TEST_F(IpcTest, Input_Vector2f_CorrectValue) {
     Start();
     WaitForFrame();
 
-    OxVector2f value{};
+    XrVector2f value{};
     EXPECT_EQ(driver().get_input_state_vector2f(0, "/user/hand/left", "/input/thumbstick", &value),
               OX_COMPONENT_AVAILABLE);
     EXPECT_NEAR(value.x, 0.5f, 1e-5f);

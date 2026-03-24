@@ -56,8 +56,8 @@ void* BuildMessage(MessageType type, uint32_t sequence, const void* payload, uin
     return buffer;
 }
 
-OxPose ReadPose(const PoseState& pose_state) {
-    OxPose pose{};
+XrPosef ReadPose(const PoseState& pose_state) {
+    XrPosef pose{};
     while (true) {
         const uint32_t seq0 = pose_state.seq.load(std::memory_order_acquire);
         if ((seq0 & 1u) != 0u) {
@@ -77,7 +77,7 @@ OxPose ReadPose(const PoseState& pose_state) {
 
 struct DeviceSnapshot {
     char user_path[256];
-    OxPose pose;
+    XrPosef pose;
     uint64_t timestamp;
     uint32_t is_active;
 };
@@ -352,7 +352,7 @@ static void GetTrackingCapabilities(OxTrackingCapabilities* caps) {
     }
 }
 
-static void UpdateViewPose(int64_t predicted_time, uint32_t eye_index, OxPose* out_pose) {
+static void UpdateViewPose(XrTime predicted_time, uint32_t eye_index, XrPosef* out_pose) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
     if (!g_connected || !g_shared_data || !out_pose || eye_index >= 2) {
@@ -361,7 +361,7 @@ static void UpdateViewPose(int64_t predicted_time, uint32_t eye_index, OxPose* o
     *out_pose = ReadPose(g_shared_data->frame_state.views[eye_index].pose);
 }
 
-static void UpdateDevices(int64_t predicted_time, OxDeviceState* out_states, uint32_t* out_count) {
+static void UpdateDevices(XrTime predicted_time, OxDeviceState* out_states, uint32_t* out_count) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
     if (!g_connected || !g_shared_data || !out_count) {
@@ -386,7 +386,7 @@ static void UpdateDevices(int64_t predicted_time, OxDeviceState* out_states, uin
     }
 }
 
-static OxComponentResult GetInputStateBoolean(int64_t predicted_time, const char* user_path, const char* component_path,
+static OxComponentResult GetInputStateBoolean(XrTime predicted_time, const char* user_path, const char* component_path,
                                               uint32_t* out_value) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
@@ -405,7 +405,7 @@ static OxComponentResult GetInputStateBoolean(int64_t predicted_time, const char
     return available ? OX_COMPONENT_AVAILABLE : OX_COMPONENT_UNAVAILABLE;
 }
 
-static OxComponentResult GetInputStateFloat(int64_t predicted_time, const char* user_path, const char* component_path,
+static OxComponentResult GetInputStateFloat(XrTime predicted_time, const char* user_path, const char* component_path,
                                             float* out_value) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
@@ -424,8 +424,8 @@ static OxComponentResult GetInputStateFloat(int64_t predicted_time, const char* 
     return available ? OX_COMPONENT_AVAILABLE : OX_COMPONENT_UNAVAILABLE;
 }
 
-static OxComponentResult GetInputStateVector2f(int64_t predicted_time, const char* user_path,
-                                               const char* component_path, OxVector2f* out_value) {
+static OxComponentResult GetInputStateVector2f(XrTime predicted_time, const char* user_path, const char* component_path,
+                                               XrVector2f* out_value) {
     std::lock_guard<std::mutex> lock(g_mutex);
     (void)predicted_time;
     if (!g_connected || !g_shared_data) {
@@ -455,7 +455,7 @@ static uint32_t GetInteractionProfiles(const char** profiles, uint32_t max_profi
     return static_cast<uint32_t>(g_interaction_profile_storage.size());
 }
 
-static void NotifySessionState(OxSessionState state) {
+static void NotifySessionState(XrSessionState state) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_connected) {
         return;
@@ -464,9 +464,10 @@ static void NotifySessionState(OxSessionState state) {
     SendRequestLocked<MessageHeader>(MessageType::NOTIFY_SESSION_STATE, &notification, sizeof(notification), nullptr);
 }
 
-static void SubmitFramePixels(uint32_t eye_index, uint32_t width, uint32_t height, uint32_t format,
+static void SubmitFramePixels(XrTime frame_time, uint32_t eye_index, uint32_t width, uint32_t height, uint32_t format,
                               const void* pixel_data, uint32_t data_size) {
     std::lock_guard<std::mutex> lock(g_mutex);
+    (void)frame_time;
     if (!g_connected || !g_shared_data || !pixel_data || eye_index >= 2 || data_size > MAX_TEXTURE_SIZE) {
         return;
     }

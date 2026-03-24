@@ -62,13 +62,13 @@ struct RegisterInputResponse {
 };
 
 struct SessionStateNotification {
-    OxSessionState state;
+    XrSessionState state;
 };
 
 struct alignas(64) PoseState {
     std::atomic<uint32_t> seq;
     uint32_t padding0[15];
-    OxPose pose;
+    XrPosef pose;
     uint64_t timestamp;
     uint32_t padding1[6];
 };
@@ -77,7 +77,7 @@ struct alignas(64) DeviceState {
     std::atomic<uint32_t> seq;
     uint32_t padding0[15];
     char user_path[256];
-    OxPose pose;
+    XrPosef pose;
     uint64_t timestamp;
     uint32_t is_active;
     uint32_t padding1[7];
@@ -85,7 +85,7 @@ struct alignas(64) DeviceState {
 
 struct ViewState {
     PoseState pose;
-    OxFov fov;
+    XrFovf fov;
 };
 
 struct alignas(64) InputSlot {
@@ -96,7 +96,7 @@ struct alignas(64) InputSlot {
     union {
         uint32_t bool_value;
         float float_value;
-        OxVector2f vec2f_value;
+        XrVector2f vec2f_value;
     };
     uint32_t padding[2];
 };

@@ -94,7 +94,7 @@ int64_t NowNanos() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 }
 
-void WritePose(PoseState& pose_state, const OxPose& pose, uint64_t timestamp) {
+void WritePose(PoseState& pose_state, const XrPosef& pose, uint64_t timestamp) {
     const uint32_t seq = pose_state.seq.load(std::memory_order_relaxed);
     pose_state.seq.store(seq + 1, std::memory_order_release);
     std::atomic_thread_fence(std::memory_order_release);
@@ -148,7 +148,7 @@ void UpdateInputSlot(InputSlot& slot, const OxDriverCallbacks& callbacks, int64_
                 slot.is_available.store(0, std::memory_order_release);
                 return;
             }
-            OxVector2f value{};
+            XrVector2f value{};
             const bool available =
                 callbacks.get_input_state_vector2f(predicted_time, slot.user_path, slot.component_path, &value) ==
                 OX_COMPONENT_AVAILABLE;
@@ -342,7 +342,7 @@ static void FrameLoop() {
             g_driver_callbacks.get_display_properties(&display_props);
 
             for (uint32_t eye_index = 0; eye_index < 2; ++eye_index) {
-                OxPose pose{};
+                XrPosef pose{};
                 g_driver_callbacks.update_view_pose(predicted_time, eye_index, &pose);
                 auto& view = frame.views[eye_index];
                 WritePose(view.pose, pose, static_cast<uint64_t>(predicted_time));
@@ -372,11 +372,11 @@ static void FrameLoop() {
                     auto& texture = frame.textures[eye_index];
                     if (texture.ready.load(std::memory_order_acquire) == 1) {
                         texture.ready.store(0, std::memory_order_release);
-                        g_driver_callbacks.submit_frame_pixels(eye_index, texture.width.load(std::memory_order_relaxed),
-                                                               texture.height.load(std::memory_order_relaxed),
-                                                               texture.format.load(std::memory_order_relaxed),
-                                                               texture.pixel_data,
-                                                               texture.data_size.load(std::memory_order_relaxed));
+                        g_driver_callbacks.submit_frame_pixels(
+                            predicted_time, eye_index, texture.width.load(std::memory_order_relaxed),
+                            texture.height.load(std::memory_order_relaxed),
+                            texture.format.load(std::memory_order_relaxed), texture.pixel_data,
+                            texture.data_size.load(std::memory_order_relaxed));
                     }
                 }
             }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <openxr/openxr.h>
 #include <ox_driver.h>
 
 #include <algorithm>
@@ -33,12 +34,12 @@ struct MockState {
     uint32_t display_width = 1920;
     uint32_t display_height = 1080;
     float refresh_rate = 90.0f;
-    OxFov fov = {-0.8f, 0.8f, 0.8f, -0.8f};
+    XrFovf fov = {-0.8f, 0.8f, 0.8f, -0.8f};
 
     uint32_t has_position = 1;
     uint32_t has_orientation = 1;
 
-    OxPose view_pose[2] = {};
+    XrPosef view_pose[2] = {};
     std::vector<OxDeviceState> devices;
     std::vector<std::string> profiles = {"/interaction_profiles/khr/simple_controller"};
 
@@ -48,12 +49,12 @@ struct MockState {
         union {
             uint32_t b;
             float f;
-            OxVector2f v;
+            XrVector2f v;
         } value{};
     };
 
     std::map<std::string, InputEntry> inputs;
-    OxSessionState last_session_state = OX_SESSION_STATE_UNKNOWN;
+    XrSessionState last_session_state = XR_SESSION_STATE_UNKNOWN;
 
     void SetBool(const char* user, const char* comp, bool available, uint32_t value) {
         InputEntry entry{};
@@ -71,7 +72,7 @@ struct MockState {
         inputs[std::string(user) + "|" + comp] = entry;
     }
 
-    void SetVec2f(const char* user, const char* comp, bool available, OxVector2f value) {
+    void SetVec2f(const char* user, const char* comp, bool available, XrVector2f value) {
         InputEntry entry{};
         entry.type = ox::ipc::InputSlotType::VECTOR2F;
         entry.available = available;
@@ -114,13 +115,13 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         caps->has_orientation_tracking = g_mock->has_orientation;
     };
 
-    callbacks.update_view_pose = [](int64_t, uint32_t eye_index, OxPose* out_pose) {
+    callbacks.update_view_pose = [](XrTime, uint32_t eye_index, XrPosef* out_pose) {
         if (eye_index < 2 && out_pose) {
             *out_pose = g_mock->view_pose[eye_index];
         }
     };
 
-    callbacks.update_devices = [](int64_t, OxDeviceState* out_states, uint32_t* out_count) {
+    callbacks.update_devices = [](XrTime, OxDeviceState* out_states, uint32_t* out_count) {
         const uint32_t count =
             static_cast<uint32_t>(std::min(g_mock->devices.size(), static_cast<size_t>(OX_MAX_DEVICES)));
         *out_count = count;
@@ -138,9 +139,9 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return static_cast<uint32_t>(g_mock->profiles.size());
     };
 
-    callbacks.on_session_state_changed = [](OxSessionState state) { g_mock->last_session_state = state; };
+    callbacks.on_session_state_changed = [](XrSessionState state) { g_mock->last_session_state = state; };
 
-    callbacks.get_input_state_boolean = [](int64_t, const char* user_path, const char* component_path,
+    callbacks.get_input_state_boolean = [](XrTime, const char* user_path, const char* component_path,
                                            uint32_t* out_value) -> OxComponentResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
@@ -152,7 +153,7 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return OX_COMPONENT_AVAILABLE;
     };
 
-    callbacks.get_input_state_float = [](int64_t, const char* user_path, const char* component_path,
+    callbacks.get_input_state_float = [](XrTime, const char* user_path, const char* component_path,
                                          float* out_value) -> OxComponentResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
@@ -164,8 +165,8 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return OX_COMPONENT_AVAILABLE;
     };
 
-    callbacks.get_input_state_vector2f = [](int64_t, const char* user_path, const char* component_path,
-                                            OxVector2f* out_value) -> OxComponentResult {
+    callbacks.get_input_state_vector2f = [](XrTime, const char* user_path, const char* component_path,
+                                            XrVector2f* out_value) -> OxComponentResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
             return OX_COMPONENT_UNAVAILABLE;
