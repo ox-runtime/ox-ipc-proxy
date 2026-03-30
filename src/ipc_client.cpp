@@ -77,7 +77,7 @@ struct DeviceSnapshot {
     char user_path[256];
     XrPosef pose;
     uint64_t timestamp;
-    uint32_t is_active;
+    XrBool32 is_active;
 };
 
 DeviceSnapshot ReadDeviceState(const DeviceState& device_state) {

@@ -77,7 +77,7 @@ struct alignas(64) DeviceState {
     char user_path[256];
     XrPosef pose;
     uint64_t timestamp;
-    uint32_t is_active;
+    XrBool32 is_active;
     uint32_t padding1[7];
 };
 

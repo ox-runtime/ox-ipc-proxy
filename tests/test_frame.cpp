@@ -35,7 +35,7 @@ TEST_F(IpcTest, UpdateDevices_ReturnsAllDevices) {
     OxDeviceState head{};
     std::snprintf(head.user_path, sizeof(head.user_path), "%s", "/user/head");
     head.pose = {{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.7f, 0.0f}};
-    head.is_active = 1;
+    head.is_active = XR_TRUE;
     mock.devices.push_back(head);
 
     Start();

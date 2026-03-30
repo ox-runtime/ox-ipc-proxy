@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.27)
 
-project(ox-ipc-proxy VERSION 0.1.0 LANGUAGES CXX)
+project(ox-ipc-proxy VERSION 0.2.0 LANGUAGES CXX)
 
 if(WIN32 AND MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -31,7 +31,7 @@ else()
     FetchContent_Declare(
         ox_driver_api
         GIT_REPOSITORY https://github.com/ox-runtime/ox-runtime.git
-        GIT_TAG v0.1.0
+        GIT_TAG v0.2.0
         GIT_SHALLOW TRUE
         GIT_SPARSE_CHECKOUT include
         SOURCE_SUBDIR include
@@ -110,6 +110,8 @@ function(configure_proxy_target target output_name)
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
         ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/lib
         ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/lib
+        CXX_VISIBILITY_PRESET hidden  # Hide non-exported C++ symbols by default so only explicit API exports leave the shared library.
+        VISIBILITY_INLINES_HIDDEN ON
     )
 
     if(WIN32)
