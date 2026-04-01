@@ -327,9 +327,7 @@ static void FrameLoop() {
         if (g_shared_data && g_shared_data->frontend_connected.load(std::memory_order_acquire) == 1) {
             auto& frame = g_shared_data->frame_state;
             const int64_t predicted_time = NowNanos();
-            frame.frame_id.store(g_frame_counter++, std::memory_order_release);
-            frame.predicted_display_time.store(predicted_time, std::memory_order_release);
-            frame.view_count.store(2, std::memory_order_release);
+            frame.predicted_display_time.store(predicted_time, std::memory_order_relaxed);
 
             for (uint32_t eye_index = 0; eye_index < 2; ++eye_index) {
                 XrView view{XR_TYPE_VIEW};
@@ -338,6 +336,7 @@ static void FrameLoop() {
                 WritePose(shared_view.pose, view.pose, static_cast<uint64_t>(predicted_time));
                 shared_view.fov = view.fov;
             }
+            frame.view_count.store(2, std::memory_order_release);
 
             uint32_t device_count = 0;
             OxDeviceState devices[OX_MAX_DEVICES]{};
@@ -346,10 +345,10 @@ static void FrameLoop() {
             }
 
             device_count = std::min<uint32_t>(device_count, OX_MAX_DEVICES);
-            frame.device_count.store(device_count, std::memory_order_release);
             for (uint32_t index = 0; index < device_count; ++index) {
                 WriteDeviceState(frame.device_states[index], devices[index], static_cast<uint64_t>(predicted_time));
             }
+            frame.device_count.store(device_count, std::memory_order_release);
 
             auto& input_state = g_shared_data->input_state;
             const uint32_t slot_count = input_state.slot_count.load(std::memory_order_acquire);
@@ -370,6 +369,8 @@ static void FrameLoop() {
                     }
                 }
             }
+
+            frame.frame_id.store(g_frame_counter++, std::memory_order_release);
         }
 
         std::this_thread::sleep_until(next_frame);
