@@ -113,11 +113,24 @@ class SharedMemory {
 #else
         int flags = O_RDWR;
         if (create_new) {
-            flags |= O_CREAT;
+            flags |= O_CREAT | O_EXCL;
         }
 
         // Restrict to owner only (0600) for security
         fd_ = shm_open(name, flags, 0600);
+        if (fd_ == -1 && create_new && errno == EEXIST) {
+            if (shm_unlink(name) == -1 && errno != ENOENT) {
+                last_error_ = "SharedMemory::shm_unlink failed for '" + std::string(name) + "': errno " +
+                              std::to_string(errno) + " (" + std::strerror(errno) + ")" +
+                              " while replacing stale shared memory";
+                fprintf(stderr, "%s\n", last_error_.c_str());
+                fflush(stderr);
+                return false;
+            }
+
+            fd_ = shm_open(name, flags, 0600);
+        }
+
         if (fd_ == -1) {
             last_error_ = "SharedMemory::shm_open failed for '" + std::string(name) + "': errno " +
                           std::to_string(errno) + " (" + std::strerror(errno) + ")" + " (size=" + std::to_string(size) +
@@ -135,6 +148,7 @@ class SharedMemory {
                 fprintf(stderr, "%s\n", last_error_.c_str());
                 fflush(stderr);
                 close(fd_);
+                shm_unlink(name);
                 fd_ = -1;
                 return false;
             }
@@ -147,6 +161,9 @@ class SharedMemory {
             fprintf(stderr, "%s\n", last_error_.c_str());
             fflush(stderr);
             close(fd_);
+            if (create_new) {
+                shm_unlink(name);
+            }
             fd_ = -1;
             ptr_ = nullptr;
             return false;
