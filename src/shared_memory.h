@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -55,9 +57,12 @@ class SharedMemory {
 
     ~SharedMemory() { Close(); }
 
+    const std::string& GetLastError() const { return last_error_; }
+
     // Create or open shared memory region
     bool Create(const char* name, size_t size, bool create_new = true) {
         size_ = size;
+        last_error_.clear();
 
 #ifdef _WIN32
         SECURITY_ATTRIBUTES* sa = create_new ? CreateSharedMemorySecurityAttributes() : nullptr;
@@ -70,8 +75,10 @@ class SharedMemory {
 
         if (!handle_) {
             DWORD error = GetLastError();
-            fprintf(stderr, "SharedMemory::%s failed for '%s': Error %lu (size=%zu)\n",
-                    create_new ? "CreateFileMapping" : "OpenFileMapping", name, error, size);
+            last_error_ = "SharedMemory::" + std::string(create_new ? "CreateFileMapping" : "OpenFileMapping") +
+                          " failed for '" + name + "': Error " + std::to_string(error) +
+                          " (size=" + std::to_string(size) + ")";
+            fprintf(stderr, "%s\n", last_error_.c_str());
             fflush(stderr);
             return false;
         }
@@ -87,7 +94,9 @@ class SharedMemory {
         ptr_ = MapViewOfFile(handle_, FILE_MAP_ALL_ACCESS, 0, 0, size);
         if (!ptr_) {
             DWORD error = GetLastError();
-            fprintf(stderr, "SharedMemory::MapViewOfFile failed for '%s': Error %lu (size=%zu)\n", name, error, size);
+            last_error_ = "SharedMemory::MapViewOfFile failed for '" + std::string(name) + "': Error " +
+                          std::to_string(error) + " (size=" + std::to_string(size) + ")";
+            fprintf(stderr, "%s\n", last_error_.c_str());
             CloseHandle(handle_);
             handle_ = nullptr;
             return false;
@@ -107,11 +116,21 @@ class SharedMemory {
         // Restrict to owner only (0600) for security
         fd_ = shm_open(name, flags, 0600);
         if (fd_ == -1) {
+            last_error_ = "SharedMemory::shm_open failed for '" + std::string(name) + "': errno " +
+                          std::to_string(errno) + " (" + std::strerror(errno) + ")" +
+                          " (size=" + std::to_string(size) + ")";
+            fprintf(stderr, "%s\n", last_error_.c_str());
+            fflush(stderr);
             return false;
         }
 
         if (create_new) {
             if (ftruncate(fd_, size) == -1) {
+                last_error_ = "SharedMemory::ftruncate failed for '" + std::string(name) + "': errno " +
+                              std::to_string(errno) + " (" + std::strerror(errno) + ")" +
+                              " (size=" + std::to_string(size) + ")";
+                fprintf(stderr, "%s\n", last_error_.c_str());
+                fflush(stderr);
                 close(fd_);
                 fd_ = -1;
                 return false;
@@ -120,6 +139,11 @@ class SharedMemory {
 
         ptr_ = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
         if (ptr_ == MAP_FAILED) {
+            last_error_ = "SharedMemory::mmap failed for '" + std::string(name) + "': errno " +
+                          std::to_string(errno) + " (" + std::strerror(errno) + ")" +
+                          " (size=" + std::to_string(size) + ")";
+            fprintf(stderr, "%s\n", last_error_.c_str());
+            fflush(stderr);
             close(fd_);
             fd_ = -1;
             ptr_ = nullptr;
@@ -141,7 +165,10 @@ class SharedMemory {
             UnmapViewOfFile(ptr_);
             ptr_ = nullptr;
 #else
-            munmap(ptr_, size_);
+            if (munmap(ptr_, size_) != 0) {
+                fprintf(stderr, "SharedMemory::munmap failed: errno %d (%s)\n", errno, std::strerror(errno));
+                fflush(stderr);
+            }
             ptr_ = nullptr;
 #endif
         }
@@ -165,6 +192,7 @@ class SharedMemory {
    private:
     void* ptr_;
     size_t size_;
+    std::string last_error_;
 
 #ifdef _WIN32
     HANDLE handle_;
@@ -176,7 +204,10 @@ class SharedMemory {
 // Unlink shared memory (call from service on shutdown)
 inline void UnlinkSharedMemory(const char* name) {
 #ifndef _WIN32
-    shm_unlink(name);
+    if (shm_unlink(name) != 0 && errno != ENOENT) {
+        fprintf(stderr, "SharedMemory::shm_unlink failed for '%s': errno %d (%s)\n", name, errno, std::strerror(errno));
+        fflush(stderr);
+    }
 #endif
 }
 

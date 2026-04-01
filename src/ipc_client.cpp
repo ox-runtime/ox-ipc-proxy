@@ -205,8 +205,10 @@ static bool Connect() {
         return true;
     }
 
+    spdlog::info("Opening IPC shared memory '{}' ({} bytes)", SHARED_MEMORY_NAME, sizeof(SharedData));
+
     if (!g_shared_memory.Create(SHARED_MEMORY_NAME, sizeof(SharedData), false)) {
-        spdlog::error("Failed to open IPC shared memory");
+        spdlog::error("Failed to open IPC shared memory '{}': {}", SHARED_MEMORY_NAME, g_shared_memory.GetLastError());
         return false;
     }
 
@@ -217,8 +219,13 @@ static bool Connect() {
         return false;
     }
 
+    spdlog::info("IPC shared memory opened: backend_ready={}, protocol_version={}",
+                 g_shared_data->backend_ready.load(std::memory_order_acquire),
+                 g_shared_data->protocol_version.load(std::memory_order_acquire));
+
     if (g_shared_data->protocol_version.load(std::memory_order_acquire) != PROTOCOL_VERSION) {
-        spdlog::error("IPC protocol version mismatch");
+        spdlog::error("IPC protocol version mismatch: expected {}, got {}", PROTOCOL_VERSION,
+                      g_shared_data->protocol_version.load(std::memory_order_acquire));
         g_shared_memory.Close();
         g_shared_data = nullptr;
         return false;

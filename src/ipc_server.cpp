@@ -396,8 +396,11 @@ bool Initialize() {
         return false;
     }
 
+    spdlog::info("Creating IPC shared memory '{}' ({} bytes)", SHARED_MEMORY_NAME, sizeof(SharedData));
+
     if (!g_shared_memory.Create(SHARED_MEMORY_NAME, sizeof(SharedData), true)) {
-        spdlog::error("Failed to create IPC shared memory");
+        spdlog::error("Failed to create IPC shared memory '{}': {}", SHARED_MEMORY_NAME,
+                      g_shared_memory.GetLastError());
         return false;
     }
 
