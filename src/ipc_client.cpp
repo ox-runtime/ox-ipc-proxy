@@ -17,6 +17,8 @@
 namespace ox {
 namespace ipc {
 
+static constexpr int DISCONNECT_ACK_TIMEOUT_MS = 250;
+
 // ---------------------------------------------------------------------------
 // Global state
 // ---------------------------------------------------------------------------
@@ -302,9 +304,18 @@ static void Disconnect() {
         size_t size = 0;
         void* buffer = BuildMessage(MessageType::DISCONNECT, g_sequence++, nullptr, 0, &size);
         if (buffer) {
+            (void)nng_socket_set_ms(g_sock, NNG_OPT_SENDTIMEO, DISCONNECT_ACK_TIMEOUT_MS);
+            (void)nng_socket_set_ms(g_sock, NNG_OPT_RECVTIMEO, DISCONNECT_ACK_TIMEOUT_MS);
+
             const int rv = nng_send(g_sock, buffer, size, NNG_FLAG_ALLOC);
             if (rv != 0) {
                 nng_free(buffer, size);
+            } else {
+                void* reply_buffer = nullptr;
+                size_t reply_size = 0;
+                if (nng_recv(g_sock, &reply_buffer, &reply_size, NNG_FLAG_ALLOC) == 0) {
+                    nng_free(reply_buffer, reply_size);
+                }
             }
         }
     }

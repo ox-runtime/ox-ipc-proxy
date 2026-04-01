@@ -19,6 +19,7 @@ constexpr uint32_t MAX_INPUT_SLOTS = 64;
 #ifdef _WIN32
 static constexpr const char* CONTROL_CHANNEL_URL = "ipc://ox_ipc_proxy_control";
 #else
+static constexpr const char* CONTROL_CHANNEL_SOCKET_PATH = "/tmp/ox_ipc_proxy_control.ipc";
 static constexpr const char* CONTROL_CHANNEL_URL = "ipc:///tmp/ox_ipc_proxy_control.ipc";
 #endif
 

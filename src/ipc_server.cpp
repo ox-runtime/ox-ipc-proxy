@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -38,6 +39,14 @@ static std::thread g_frame_thread;
 static protocol::SharedMemory g_shared_memory;
 
 namespace {
+
+#ifndef _WIN32
+void CleanupControlChannelSocket() {
+    if (::unlink(CONTROL_CHANNEL_SOCKET_PATH) != 0 && errno != ENOENT) {
+        spdlog::warn("Failed to remove IPC control socket {}: {}", CONTROL_CHANNEL_SOCKET_PATH, std::strerror(errno));
+    }
+}
+#endif
 
 void* BuildMessage(MessageType type, uint32_t sequence, const void* payload, uint32_t payload_size, size_t* out_size) {
     const size_t total_size = sizeof(MessageHeader) + payload_size;
@@ -446,6 +455,10 @@ void Shutdown() {
         g_sock = NNG_SOCKET_INITIALIZER;
         g_socket_open = false;
     }
+
+#ifndef _WIN32
+    CleanupControlChannelSocket();
+#endif
 
     if (g_server_thread.joinable()) {
         g_server_thread.join();
