@@ -208,7 +208,8 @@ static bool Connect() {
     spdlog::info("Opening IPC shared memory '{}' ({} bytes)", SHARED_MEMORY_NAME, sizeof(SharedData));
 
     if (!g_shared_memory.Create(SHARED_MEMORY_NAME, sizeof(SharedData), false)) {
-        spdlog::error("Failed to open IPC shared memory '{}': {}", SHARED_MEMORY_NAME, g_shared_memory.GetLastError());
+        spdlog::error("Failed to open IPC shared memory '{}': {}", SHARED_MEMORY_NAME,
+                      g_shared_memory.GetLastErrorMessage());
         return false;
     }
 

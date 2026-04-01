@@ -57,7 +57,7 @@ class SharedMemory {
 
     ~SharedMemory() { Close(); }
 
-    const std::string& GetLastError() const { return last_error_; }
+    const std::string& GetLastErrorMessage() const { return last_error_; }
 
     // Create or open shared memory region
     bool Create(const char* name, size_t size, bool create_new = true) {
@@ -73,8 +73,11 @@ class SharedMemory {
             handle_ = OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, name);
         }
 
+        const DWORD creation_error = create_new ? ::GetLastError() : ERROR_SUCCESS;
+        const bool mapping_already_existed = create_new && creation_error == ERROR_ALREADY_EXISTS;
+
         if (!handle_) {
-            DWORD error = GetLastError();
+            DWORD error = ::GetLastError();
             last_error_ = "SharedMemory::" + std::string(create_new ? "CreateFileMapping" : "OpenFileMapping") +
                           " failed for '" + name + "': Error " + std::to_string(error) +
                           " (size=" + std::to_string(size) + ")";
@@ -93,7 +96,7 @@ class SharedMemory {
 
         ptr_ = MapViewOfFile(handle_, FILE_MAP_ALL_ACCESS, 0, 0, size);
         if (!ptr_) {
-            DWORD error = GetLastError();
+            DWORD error = ::GetLastError();
             last_error_ = "SharedMemory::MapViewOfFile failed for '" + std::string(name) + "': Error " +
                           std::to_string(error) + " (size=" + std::to_string(size) + ")";
             fprintf(stderr, "%s\n", last_error_.c_str());
@@ -103,7 +106,7 @@ class SharedMemory {
         }
 
         // Zero initialize if newly created
-        if (create_new && GetLastError() != ERROR_ALREADY_EXISTS) {
+        if (create_new && !mapping_already_existed) {
             memset(ptr_, 0, size);
         }
 
@@ -117,8 +120,8 @@ class SharedMemory {
         fd_ = shm_open(name, flags, 0600);
         if (fd_ == -1) {
             last_error_ = "SharedMemory::shm_open failed for '" + std::string(name) + "': errno " +
-                          std::to_string(errno) + " (" + std::strerror(errno) + ")" +
-                          " (size=" + std::to_string(size) + ")";
+                          std::to_string(errno) + " (" + std::strerror(errno) + ")" + " (size=" + std::to_string(size) +
+                          ")";
             fprintf(stderr, "%s\n", last_error_.c_str());
             fflush(stderr);
             return false;
@@ -139,9 +142,8 @@ class SharedMemory {
 
         ptr_ = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
         if (ptr_ == MAP_FAILED) {
-            last_error_ = "SharedMemory::mmap failed for '" + std::string(name) + "': errno " +
-                          std::to_string(errno) + " (" + std::strerror(errno) + ")" +
-                          " (size=" + std::to_string(size) + ")";
+            last_error_ = "SharedMemory::mmap failed for '" + std::string(name) + "': errno " + std::to_string(errno) +
+                          " (" + std::strerror(errno) + ")" + " (size=" + std::to_string(size) + ")";
             fprintf(stderr, "%s\n", last_error_.c_str());
             fflush(stderr);
             close(fd_);

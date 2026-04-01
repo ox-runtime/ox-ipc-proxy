@@ -315,7 +315,7 @@ static void FrameLoop() {
     while (g_running) {
         next_frame += frame_interval;
 
-        if (g_shared_data) {
+        if (g_shared_data && g_shared_data->frontend_connected.load(std::memory_order_acquire) == 1) {
             auto& frame = g_shared_data->frame_state;
             const int64_t predicted_time = NowNanos();
             frame.frame_id.store(g_frame_counter++, std::memory_order_release);
@@ -400,7 +400,7 @@ bool Initialize() {
 
     if (!g_shared_memory.Create(SHARED_MEMORY_NAME, sizeof(SharedData), true)) {
         spdlog::error("Failed to create IPC shared memory '{}': {}", SHARED_MEMORY_NAME,
-                      g_shared_memory.GetLastError());
+                      g_shared_memory.GetLastErrorMessage());
         return false;
     }
 
