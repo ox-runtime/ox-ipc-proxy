@@ -10,7 +10,9 @@ namespace ox {
 namespace ipc {
 
 static constexpr uint32_t PROTOCOL_VERSION = 1;
-static constexpr const char* SHARED_MEMORY_NAME = "ox_ipc_proxy_shm";
+// Keep the shared-memory name POSIX-compatible so the same identifier works with shm_open on
+// macOS/Linux and the native named object APIs on Windows.
+static constexpr const char* SHARED_MEMORY_NAME = "/ox_ipc_proxy_shm";
 static constexpr uint32_t MAX_INTERACTION_PROFILES = 16;
 constexpr uint32_t MAX_INPUT_SLOTS = 64;
 
