@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.27)
 
-project(ox-ipc-proxy VERSION 0.2.4 LANGUAGES CXX)
+project(ox-ipc-proxy VERSION 0.2.5 LANGUAGES CXX)
 
 if(WIN32 AND MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
