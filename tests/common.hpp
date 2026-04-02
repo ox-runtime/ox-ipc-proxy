@@ -186,7 +186,7 @@ class IpcTest : public ::testing::Test {
         ASSERT_EQ(frontend_callbacks_.initialize(), 1);
     }
 
-    static void WaitForFrame() { std::this_thread::sleep_for(30ms); }
+    static void WaitForFrame() { std::this_thread::sleep_for(100ms); }
 
     void TearDown() override {
         if (frontend_callbacks_.shutdown) {
