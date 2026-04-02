@@ -222,8 +222,8 @@ static bool Connect() {
         return false;
     }
 
-    spdlog::info("IPC shared memory opened: backend_ready={}, protocol_version={}",
-                 g_shared_data->backend_ready.load(std::memory_order_acquire),
+    spdlog::info("IPC shared memory opened: server_ready={}, protocol_version={}",
+                 g_shared_data->server_ready.load(std::memory_order_acquire),
                  g_shared_data->protocol_version.load(std::memory_order_acquire));
 
     if (g_shared_data->protocol_version.load(std::memory_order_acquire) != PROTOCOL_VERSION) {
@@ -293,7 +293,7 @@ static bool Connect() {
         return false;
     }
 
-    g_shared_data->frontend_connected.store(1, std::memory_order_release);
+    g_shared_data->client_connected.store(1, std::memory_order_release);
     return true;
 }
 
@@ -321,7 +321,7 @@ static void Disconnect() {
     }
 
     if (g_shared_data) {
-        g_shared_data->frontend_connected.store(0, std::memory_order_release);
+        g_shared_data->client_connected.store(0, std::memory_order_release);
     }
 
     if (g_connected) {

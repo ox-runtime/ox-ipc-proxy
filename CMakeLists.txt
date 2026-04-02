@@ -72,31 +72,31 @@ else()
     set(OX_IPC_NNG_TARGET nng)
 endif()
 
-add_library(ox_ipc_frontend_obj OBJECT
+add_library(ox_ipc_client_obj OBJECT
     src/ipc_client.cpp
 )
 
-target_include_directories(ox_ipc_frontend_obj PUBLIC
+target_include_directories(ox_ipc_client_obj PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(ox_ipc_frontend_obj PUBLIC ox_driver_api spdlog::spdlog ${OX_IPC_NNG_TARGET})
+target_link_libraries(ox_ipc_client_obj PUBLIC ox_driver_api spdlog::spdlog ${OX_IPC_NNG_TARGET})
 
-add_library(ox_ipc_frontend SHARED
-    $<TARGET_OBJECTS:ox_ipc_frontend_obj>
+add_library(ox_ipc_client SHARED
+    $<TARGET_OBJECTS:ox_ipc_client_obj>
 )
 
-target_link_libraries(ox_ipc_frontend PRIVATE ox_ipc_frontend_obj)
+target_link_libraries(ox_ipc_client PRIVATE ox_ipc_client_obj)
 
-add_library(ox_ipc_backend SHARED
+add_library(ox_ipc_server SHARED
     src/ipc_server.cpp
 )
 
-target_include_directories(ox_ipc_backend PRIVATE
+target_include_directories(ox_ipc_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(ox_ipc_backend PRIVATE ox_driver_api spdlog::spdlog ${OX_IPC_NNG_TARGET})
+target_link_libraries(ox_ipc_server PRIVATE ox_driver_api spdlog::spdlog ${OX_IPC_NNG_TARGET})
 
 function(configure_proxy_target target output_name)
     set_target_properties(${target} PROPERTIES
@@ -121,7 +121,7 @@ function(configure_proxy_target target output_name)
     endif()
 endfunction()
 
-configure_proxy_target(ox_ipc_frontend "ox_ipc_frontend")
-configure_proxy_target(ox_ipc_backend "ox_ipc_backend")
+configure_proxy_target(ox_ipc_client "ox_ipc_client")
+configure_proxy_target(ox_ipc_server "ox_ipc_server")
 
 add_subdirectory(tests)

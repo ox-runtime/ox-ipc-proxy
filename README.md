@@ -4,8 +4,8 @@
 
 It builds two shared libraries:
 
-- `ox_ipc_frontend`: exports the low-level driver ABI expected by `ox-runtime` and acts as the IPC client
-- `ox_ipc_backend`: accepts a real driver callback table from `ox.exe` and hosts the IPC server side
+- `ox_ipc_client`: exports the low-level driver ABI expected by `ox-runtime` and acts as the IPC client
+- `ox_ipc_server`: accepts a real driver callback table from `ox.exe` and hosts the IPC server side
 
 ## Build
 
@@ -18,12 +18,12 @@ cmake --build build/win-x64 --config Release
 
 Artifacts are written under `build/<platform>/bin`:
 
-- `ox_ipc_frontend.dll` (Windows), `libox_ipc_frontend.so` (Linux), `libox_ipc_frontend.dylib` (macOS)
-- `ox_ipc_backend.dll` (Windows), `libox_ipc_backend.so` (Linux), `libox_ipc_backend.dylib` (macOS)
+- `ox_ipc_client.dll` (Windows), `libox_ipc_client.so` (Linux), `libox_ipc_client.dylib` (macOS)
+- `ox_ipc_server.dll` (Windows), `libox_ipc_server.so` (Linux), `libox_ipc_server.dylib` (macOS)
 
 The libraries use OS-native naming conventions and do not include version suffixes.
 
 ## Integration
 
-- `ox-runtime` loads `ox_ipc_frontend` as its default driver when no explicit override is present.
-- `ox.exe` loads `ox_ipc_backend`, calls `ox_ipc_backend_set_driver()` with the selected real driver callback table, then calls `ox_ipc_backend_initialize()` to start serving clients.
+- `ox-runtime` loads `ox_ipc_client` as its default driver when no explicit override is present.
+- `ox.exe` loads `ox_ipc_server`, calls `ox_ipc_server_set_driver()` with the selected real driver callback table, then calls `ox_ipc_server_initialize()` to start serving clients.

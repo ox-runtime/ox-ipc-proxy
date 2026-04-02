@@ -67,7 +67,7 @@ TEST_F(IpcTest, SubmitFramePixels_ValidEye_DoesNotCrash) {
     std::vector<uint8_t> pixels(width * height * 4, 200u);
     EXPECT_NO_FATAL_FAILURE(
         driver().submit_frame_pixels(0, 0, width, height, 0x8058, pixels.data(), static_cast<uint32_t>(pixels.size())));
-    EXPECT_TRUE(IsFrontendConnected());
+    EXPECT_TRUE(IsClientConnected());
 }
 
 TEST_F(IpcTest, SubmitFramePixels_OversizedData_DoesNotDisconnect) {
@@ -76,5 +76,5 @@ TEST_F(IpcTest, SubmitFramePixels_OversizedData_DoesNotDisconnect) {
     std::vector<uint8_t> pixels(ox::ipc::MAX_TEXTURE_SIZE + 1, 0u);
     EXPECT_NO_FATAL_FAILURE(
         driver().submit_frame_pixels(0, 0, 1, 1, 0, pixels.data(), static_cast<uint32_t>(pixels.size())));
-    EXPECT_TRUE(IsFrontendConnected());
+    EXPECT_TRUE(IsClientConnected());
 }

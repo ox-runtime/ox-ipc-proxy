@@ -16,9 +16,9 @@
 #include "../src/messages.h"
 
 extern "C" {
-void ox_ipc_backend_set_driver(const OxDriverCallbacks* callbacks);
-int ox_ipc_backend_initialize();
-void ox_ipc_backend_shutdown();
+void ox_ipc_server_set_driver(const OxDriverCallbacks* callbacks);
+int ox_ipc_server_initialize();
+void ox_ipc_server_shutdown();
 int ox_driver_register(OxDriverCallbacks* callbacks);
 }
 
@@ -175,31 +175,31 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
 class IpcTest : public ::testing::Test {
    protected:
     MockState mock;
-    OxDriverCallbacks frontend_callbacks_{};
+    OxDriverCallbacks client_callbacks_{};
 
     void Start() {
         OxDriverCallbacks callbacks = mock.MakeCallbacks();
-        ox_ipc_backend_set_driver(&callbacks);
-        ASSERT_EQ(ox_ipc_backend_initialize(), 1);
-        ASSERT_EQ(ox_driver_register(&frontend_callbacks_), 1);
-        ASSERT_NE(frontend_callbacks_.initialize, nullptr);
-        ASSERT_EQ(frontend_callbacks_.initialize(), 1);
+        ox_ipc_server_set_driver(&callbacks);
+        ASSERT_EQ(ox_ipc_server_initialize(), 1);
+        ASSERT_EQ(ox_driver_register(&client_callbacks_), 1);
+        ASSERT_NE(client_callbacks_.initialize, nullptr);
+        ASSERT_EQ(client_callbacks_.initialize(), 1);
     }
 
     static void WaitForFrame() { std::this_thread::sleep_for(100ms); }
 
     void TearDown() override {
-        if (frontend_callbacks_.shutdown) {
-            frontend_callbacks_.shutdown();
+        if (client_callbacks_.shutdown) {
+            client_callbacks_.shutdown();
         }
-        frontend_callbacks_ = {};
-        ox_ipc_backend_shutdown();
+        client_callbacks_ = {};
+        ox_ipc_server_shutdown();
         g_mock = nullptr;
     }
 
-    OxDriverCallbacks& driver() { return frontend_callbacks_; }
+    OxDriverCallbacks& driver() { return client_callbacks_; }
 
-    bool IsFrontendConnected() const {
-        return frontend_callbacks_.is_device_connected && frontend_callbacks_.is_device_connected() != 0;
+    bool IsClientConnected() const {
+        return client_callbacks_.is_device_connected && client_callbacks_.is_device_connected() != 0;
     }
 };

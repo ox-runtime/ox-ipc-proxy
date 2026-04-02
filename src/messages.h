@@ -137,8 +137,8 @@ struct alignas(64) FrameState {
 
 struct alignas(4096) SharedData {
     std::atomic<uint32_t> protocol_version;
-    std::atomic<uint32_t> backend_ready;
-    std::atomic<uint32_t> frontend_connected;
+    std::atomic<uint32_t> server_ready;
+    std::atomic<uint32_t> client_connected;
     uint32_t padding1;
     FrameState frame_state;
     InputStateTable input_state;

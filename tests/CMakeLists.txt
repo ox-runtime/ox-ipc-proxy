@@ -14,7 +14,7 @@ add_executable(ipc_proxy_tests
     test_session.cpp
     test_frame.cpp
     ../src/ipc_server.cpp
-    $<TARGET_OBJECTS:ox_ipc_frontend_obj>
+    $<TARGET_OBJECTS:ox_ipc_client_obj>
 )
 
 target_include_directories(ipc_proxy_tests PRIVATE

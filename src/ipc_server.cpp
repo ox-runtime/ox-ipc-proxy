@@ -15,9 +15,9 @@
 #include "shared_memory.h"
 
 #ifdef _WIN32
-#define OX_IPC_BACKEND_EXPORT __declspec(dllexport)
+#define OX_IPC_SERVER_EXPORT __declspec(dllexport)
 #else
-#define OX_IPC_BACKEND_EXPORT __attribute__((visibility("default")))
+#define OX_IPC_SERVER_EXPORT __attribute__((visibility("default")))
 #endif
 
 namespace ox {
@@ -173,8 +173,8 @@ void UpdateInputSlot(InputSlot& slot, const OxDriverCallbacks& callbacks, int64_
 static void InitializeSharedData() {
     std::memset(g_shared_data, 0, sizeof(SharedData));
     g_shared_data->protocol_version.store(PROTOCOL_VERSION, std::memory_order_release);
-    g_shared_data->backend_ready.store(1, std::memory_order_release);
-    g_shared_data->frontend_connected.store(0, std::memory_order_release);
+    g_shared_data->server_ready.store(1, std::memory_order_release);
+    g_shared_data->client_connected.store(0, std::memory_order_release);
 }
 
 static void HandleConnect(const MessageHeader& request) { SendEmpty(g_sock, request); }
@@ -289,13 +289,13 @@ static void ServerLoop() {
         switch (header.type) {
             case MessageType::CONNECT:
                 if (g_shared_data) {
-                    g_shared_data->frontend_connected.store(1, std::memory_order_release);
+                    g_shared_data->client_connected.store(1, std::memory_order_release);
                 }
                 HandleConnect(header);
                 break;
             case MessageType::DISCONNECT:
                 if (g_shared_data) {
-                    g_shared_data->frontend_connected.store(0, std::memory_order_release);
+                    g_shared_data->client_connected.store(0, std::memory_order_release);
                 }
                 HandleDisconnect(header);
                 break;
@@ -324,7 +324,7 @@ static void FrameLoop() {
     while (g_running) {
         next_frame += frame_interval;
 
-        if (g_shared_data && g_shared_data->frontend_connected.load(std::memory_order_acquire) == 1) {
+        if (g_shared_data && g_shared_data->client_connected.load(std::memory_order_acquire) == 1) {
             auto& frame = g_shared_data->frame_state;
             const int64_t predicted_time = NowNanos();
             frame.predicted_display_time.store(predicted_time, std::memory_order_relaxed);
@@ -397,12 +397,12 @@ bool Initialize() {
 
     if (!g_driver_set || !g_driver_callbacks.initialize || !g_driver_callbacks.is_device_connected ||
         !g_driver_callbacks.get_system_properties || !g_driver_callbacks.update_view) {
-        spdlog::error("IPC backend driver is not configured correctly");
+        spdlog::error("IPC server driver is not configured correctly");
         return false;
     }
 
     if (!g_driver_callbacks.is_device_connected()) {
-        spdlog::error("IPC backend driver reported no device");
+        spdlog::error("IPC server driver reported no device");
         return false;
     }
 
@@ -478,11 +478,11 @@ void Shutdown() {
 
 extern "C" {
 
-OX_IPC_BACKEND_EXPORT void ox_ipc_backend_set_driver(const OxDriverCallbacks* callbacks) {
+OX_IPC_SERVER_EXPORT void ox_ipc_server_set_driver(const OxDriverCallbacks* callbacks) {
     ox::ipc::SetDriver(callbacks);
 }
 
-OX_IPC_BACKEND_EXPORT int ox_ipc_backend_initialize() { return ox::ipc::Initialize() ? 1 : 0; }
+OX_IPC_SERVER_EXPORT int ox_ipc_server_initialize() { return ox::ipc::Initialize() ? 1 : 0; }
 
-OX_IPC_BACKEND_EXPORT void ox_ipc_backend_shutdown() { ox::ipc::Shutdown(); }
+OX_IPC_SERVER_EXPORT void ox_ipc_server_shutdown() { ox::ipc::Shutdown(); }
 }
