@@ -16,10 +16,10 @@
 #include "../src/messages.h"
 
 extern "C" {
-void ox_ipc_server_set_driver(const OxDriverCallbacks* callbacks);
+void ox_ipc_server_set_driver(const OxDriver* driver);
 int ox_ipc_server_initialize();
 void ox_ipc_server_shutdown();
-int ox_driver_register(OxDriverCallbacks* callbacks);
+int ox_driver_register(OxDriver* driver);
 }
 
 using namespace std::chrono_literals;
@@ -80,20 +80,20 @@ struct MockState {
         inputs[std::string(user) + "|" + comp] = entry;
     }
 
-    OxDriverCallbacks MakeCallbacks();
+    OxDriver MakeDriver();
 };
 
 inline MockState* g_mock = nullptr;
 
-inline OxDriverCallbacks MockState::MakeCallbacks() {
+inline OxDriver MockState::MakeDriver() {
     g_mock = this;
 
-    OxDriverCallbacks callbacks{};
-    callbacks.initialize = []() -> int { return 1; };
-    callbacks.shutdown = []() {};
-    callbacks.is_device_connected = []() -> int { return 1; };
+    OxDriver driver{};
+    driver.initialize = []() -> int { return 1; };
+    driver.shutdown = []() {};
+    driver.is_device_connected = []() -> int { return 1; };
 
-    callbacks.get_system_properties = [](XrSystemProperties* props) {
+    driver.get_system_properties = [](XrSystemProperties* props) {
         if (!props) return;
         void* next = props->next;
         props->vendorId = g_mock->vendor_id;
@@ -106,14 +106,14 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         props->next = next;
     };
 
-    callbacks.update_view = [](XrTime, uint32_t eye_index, XrView* out_view) {
+    driver.update_view = [](XrTime, uint32_t eye_index, XrView* out_view) {
         if (eye_index < 2 && out_view) {
             out_view->pose = g_mock->view_pose[eye_index];
             out_view->fov = {-0.785398f, 0.785398f, 0.785398f, -0.785398f};
         }
     };
 
-    callbacks.update_devices = [](XrTime, OxDeviceState* out_states, uint32_t* out_count) {
+    driver.update_devices = [](XrTime, OxDeviceState* out_states, uint32_t* out_count) {
         const uint32_t count =
             static_cast<uint32_t>(std::min(g_mock->devices.size(), static_cast<size_t>(OX_MAX_DEVICES)));
         *out_count = count;
@@ -122,7 +122,7 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         }
     };
 
-    callbacks.get_interaction_profiles = [](const char** profiles, uint32_t max_profiles) -> uint32_t {
+    driver.get_interaction_profiles = [](const char** profiles, uint32_t max_profiles) -> uint32_t {
         const uint32_t count =
             static_cast<uint32_t>(std::min(g_mock->profiles.size(), static_cast<size_t>(max_profiles)));
         for (uint32_t index = 0; index < count; ++index) {
@@ -131,10 +131,10 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return static_cast<uint32_t>(g_mock->profiles.size());
     };
 
-    callbacks.on_session_state_changed = [](XrSessionState state) { g_mock->last_session_state = state; };
+    driver.on_session_state_changed = [](XrSessionState state) { g_mock->last_session_state = state; };
 
-    callbacks.get_input_state_boolean = [](XrTime, const char* user_path, const char* component_path,
-                                           XrBool32* out_value) -> XrResult {
+    driver.get_input_state_bool = [](XrTime, const char* user_path, const char* component_path,
+                                     XrBool32* out_value) -> XrResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
             return XR_ERROR_PATH_UNSUPPORTED;
@@ -145,8 +145,8 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return XR_SUCCESS;
     };
 
-    callbacks.get_input_state_float = [](XrTime, const char* user_path, const char* component_path,
-                                         float* out_value) -> XrResult {
+    driver.get_input_state_float = [](XrTime, const char* user_path, const char* component_path,
+                                      float* out_value) -> XrResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
             return XR_ERROR_PATH_UNSUPPORTED;
@@ -157,8 +157,8 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return XR_SUCCESS;
     };
 
-    callbacks.get_input_state_vector2f = [](XrTime, const char* user_path, const char* component_path,
-                                            XrVector2f* out_value) -> XrResult {
+    driver.get_input_state_vector2f = [](XrTime, const char* user_path, const char* component_path,
+                                         XrVector2f* out_value) -> XrResult {
         const auto found = g_mock->inputs.find(std::string(user_path) + "|" + component_path);
         if (found == g_mock->inputs.end() || !found->second.available) {
             return XR_ERROR_PATH_UNSUPPORTED;
@@ -169,37 +169,37 @@ inline OxDriverCallbacks MockState::MakeCallbacks() {
         return XR_SUCCESS;
     };
 
-    return callbacks;
+    return driver;
 }
 
 class IpcTest : public ::testing::Test {
    protected:
     MockState mock;
-    OxDriverCallbacks client_callbacks_{};
+    OxDriver client_driver_{};
 
     void Start() {
-        OxDriverCallbacks callbacks = mock.MakeCallbacks();
-        ox_ipc_server_set_driver(&callbacks);
+        OxDriver driver = mock.MakeDriver();
+        ox_ipc_server_set_driver(&driver);
         ASSERT_EQ(ox_ipc_server_initialize(), 1);
-        ASSERT_EQ(ox_driver_register(&client_callbacks_), 1);
-        ASSERT_NE(client_callbacks_.initialize, nullptr);
-        ASSERT_EQ(client_callbacks_.initialize(), 1);
+        ASSERT_EQ(ox_driver_register(&client_driver_), 1);
+        ASSERT_NE(client_driver_.initialize, nullptr);
+        ASSERT_EQ(client_driver_.initialize(), 1);
     }
 
     static void WaitForFrame() { std::this_thread::sleep_for(100ms); }
 
     void TearDown() override {
-        if (client_callbacks_.shutdown) {
-            client_callbacks_.shutdown();
+        if (client_driver_.shutdown) {
+            client_driver_.shutdown();
         }
-        client_callbacks_ = {};
+        client_driver_ = {};
         ox_ipc_server_shutdown();
         g_mock = nullptr;
     }
 
-    OxDriverCallbacks& driver() { return client_callbacks_; }
+    OxDriver& driver() { return client_driver_; }
 
     bool IsClientConnected() const {
-        return client_callbacks_.is_device_connected && client_callbacks_.is_device_connected() != 0;
+        return client_driver_.is_device_connected && client_driver_.is_device_connected() != 0;
     }
 };

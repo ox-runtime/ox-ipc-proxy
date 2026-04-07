@@ -7,24 +7,24 @@ TEST_F(IpcTest, Connect_Succeeds) {
 }
 
 TEST(IpcLifecycle, Connect_WhenNoServerRunning_Fails) {
-    OxDriverCallbacks client_callbacks{};
-    ASSERT_EQ(ox_driver_register(&client_callbacks), 1);
-    ASSERT_NE(client_callbacks.initialize, nullptr);
-    EXPECT_EQ(client_callbacks.initialize(), 0);
-    if (client_callbacks.shutdown) {
-        client_callbacks.shutdown();
+    OxDriver client_driver{};
+    ASSERT_EQ(ox_driver_register(&client_driver), 1);
+    ASSERT_NE(client_driver.initialize, nullptr);
+    EXPECT_EQ(client_driver.initialize(), 0);
+    if (client_driver.shutdown) {
+        client_driver.shutdown();
     }
 }
 
 TEST(IpcLifecycle, ServerInitialize_ReplacesStaleSharedMemory) {
     MockState mock;
-    OxDriverCallbacks callbacks = mock.MakeCallbacks();
+    OxDriver driver = mock.MakeDriver();
 
     ox::protocol::SharedMemory stale_shared_memory;
     ASSERT_TRUE(stale_shared_memory.Create(ox::ipc::SHARED_MEMORY_NAME, sizeof(ox::ipc::SharedData), true));
     stale_shared_memory.Close();
 
-    ox_ipc_server_set_driver(&callbacks);
+    ox_ipc_server_set_driver(&driver);
     EXPECT_EQ(ox_ipc_server_initialize(), 1);
     ox_ipc_server_shutdown();
 }

@@ -26,7 +26,7 @@ namespace ipc {
 // ---------------------------------------------------------------------------
 // Global state
 // ---------------------------------------------------------------------------
-static OxDriverCallbacks g_driver_callbacks{};
+static OxDriver g_driver{};
 static bool g_driver_set = false;
 static bool g_running = false;
 static nng_socket g_sock = NNG_SOCKET_INITIALIZER;
@@ -125,40 +125,40 @@ void WriteDeviceState(DeviceState& device_state, const OxDeviceState& source, ui
     device_state.seq.store(seq + 2, std::memory_order_release);
 }
 
-void UpdateInputSlot(InputSlot& slot, const OxDriverCallbacks& callbacks, int64_t predicted_time) {
+void UpdateInputSlot(InputSlot& slot, const OxDriver& driver, int64_t predicted_time) {
     switch (slot.type) {
         case InputSlotType::BOOLEAN: {
-            if (!callbacks.get_input_state_boolean) {
+            if (!driver.get_input_state_bool) {
                 slot.is_available.store(0, std::memory_order_release);
                 return;
             }
             XrBool32 value = XR_FALSE;
-            const bool available = callbacks.get_input_state_boolean(predicted_time, slot.user_path,
-                                                                     slot.component_path, &value) == XR_SUCCESS;
+            const bool available =
+                driver.get_input_state_bool(predicted_time, slot.user_path, slot.component_path, &value) == XR_SUCCESS;
             slot.bool_value = value;
             slot.is_available.store(available ? 1u : 0u, std::memory_order_release);
             return;
         }
         case InputSlotType::FLOAT: {
-            if (!callbacks.get_input_state_float) {
+            if (!driver.get_input_state_float) {
                 slot.is_available.store(0, std::memory_order_release);
                 return;
             }
             float value = 0.0f;
-            const bool available = callbacks.get_input_state_float(predicted_time, slot.user_path, slot.component_path,
-                                                                   &value) == XR_SUCCESS;
+            const bool available =
+                driver.get_input_state_float(predicted_time, slot.user_path, slot.component_path, &value) == XR_SUCCESS;
             slot.float_value = value;
             slot.is_available.store(available ? 1u : 0u, std::memory_order_release);
             return;
         }
         case InputSlotType::VECTOR2F: {
-            if (!callbacks.get_input_state_vector2f) {
+            if (!driver.get_input_state_vector2f) {
                 slot.is_available.store(0, std::memory_order_release);
                 return;
             }
             XrVector2f value{};
-            const bool available = callbacks.get_input_state_vector2f(predicted_time, slot.user_path,
-                                                                      slot.component_path, &value) == XR_SUCCESS;
+            const bool available = driver.get_input_state_vector2f(predicted_time, slot.user_path, slot.component_path,
+                                                                   &value) == XR_SUCCESS;
             slot.vec2f_value = value;
             slot.is_available.store(available ? 1u : 0u, std::memory_order_release);
             return;
@@ -185,15 +185,15 @@ static void HandleMetadataRequest(const MessageHeader& request, MessageType type
     switch (type) {
         case MessageType::GET_SYSTEM_PROPERTIES: {
             XrSystemProperties props{XR_TYPE_SYSTEM_PROPERTIES};
-            g_driver_callbacks.get_system_properties(&props);
+            g_driver.get_system_properties(&props);
             SendPayload(g_sock, request, props);
             break;
         }
         case MessageType::GET_INTERACTION_PROFILES: {
             InteractionProfilesResponse response{};
-            if (g_driver_callbacks.get_interaction_profiles) {
+            if (g_driver.get_interaction_profiles) {
                 const char* profiles[MAX_INTERACTION_PROFILES] = {};
-                const uint32_t total = g_driver_callbacks.get_interaction_profiles(profiles, MAX_INTERACTION_PROFILES);
+                const uint32_t total = g_driver.get_interaction_profiles(profiles, MAX_INTERACTION_PROFILES);
                 response.profile_count = std::min<uint32_t>(total, MAX_INTERACTION_PROFILES);
                 for (uint32_t index = 0; index < response.profile_count; ++index) {
                     std::snprintf(response.profiles[index], sizeof(response.profiles[index]), "%s", profiles[index]);
@@ -244,15 +244,15 @@ static void HandleRegisterInput(const MessageHeader& request, const std::vector<
     std::snprintf(slot.component_path, sizeof(slot.component_path), "%s", input_request->component_path);
     slot.type = input_request->type;
     slot.is_available.store(0, std::memory_order_relaxed);
-    UpdateInputSlot(slot, g_driver_callbacks, NowNanos());
+    UpdateInputSlot(slot, g_driver, NowNanos());
     table.slot_count.store(count + 1, std::memory_order_release);
     SendPayload(g_sock, request, RegisterInputResponse{count});
 }
 
 static void HandleSessionState(const MessageHeader& request, const std::vector<uint8_t>& payload) {
-    if (payload.size() >= sizeof(SessionStateNotification) && g_driver_callbacks.on_session_state_changed) {
+    if (payload.size() >= sizeof(SessionStateNotification) && g_driver.on_session_state_changed) {
         const auto* notification = reinterpret_cast<const SessionStateNotification*>(payload.data());
-        g_driver_callbacks.on_session_state_changed(notification->state);
+        g_driver.on_session_state_changed(notification->state);
     }
     SendEmpty(g_sock, request);
 }
@@ -331,7 +331,7 @@ static void FrameLoop() {
 
             for (uint32_t eye_index = 0; eye_index < 2; ++eye_index) {
                 XrView view{XR_TYPE_VIEW};
-                g_driver_callbacks.update_view(predicted_time, eye_index, &view);
+                g_driver.update_view(predicted_time, eye_index, &view);
                 auto& shared_view = frame.views[eye_index];
                 WritePose(shared_view.pose, view.pose, static_cast<uint64_t>(predicted_time));
                 shared_view.fov = view.fov;
@@ -340,8 +340,8 @@ static void FrameLoop() {
 
             uint32_t device_count = 0;
             OxDeviceState devices[OX_MAX_DEVICES]{};
-            if (g_driver_callbacks.update_devices) {
-                g_driver_callbacks.update_devices(predicted_time, devices, &device_count);
+            if (g_driver.update_devices) {
+                g_driver.update_devices(predicted_time, devices, &device_count);
             }
 
             device_count = std::min<uint32_t>(device_count, OX_MAX_DEVICES);
@@ -353,19 +353,19 @@ static void FrameLoop() {
             auto& input_state = g_shared_data->input_state;
             const uint32_t slot_count = input_state.slot_count.load(std::memory_order_acquire);
             for (uint32_t index = 0; index < slot_count; ++index) {
-                UpdateInputSlot(input_state.slots[index], g_driver_callbacks, predicted_time);
+                UpdateInputSlot(input_state.slots[index], g_driver, predicted_time);
             }
 
-            if (g_driver_callbacks.submit_frame_pixels) {
+            if (g_driver.submit_frame_pixels) {
                 for (uint32_t eye_index = 0; eye_index < 2; ++eye_index) {
                     auto& texture = frame.textures[eye_index];
                     if (texture.ready.load(std::memory_order_acquire) == 1) {
                         texture.ready.store(0, std::memory_order_release);
-                        g_driver_callbacks.submit_frame_pixels(
-                            predicted_time, eye_index, texture.width.load(std::memory_order_relaxed),
-                            texture.height.load(std::memory_order_relaxed),
-                            texture.format.load(std::memory_order_relaxed), texture.pixel_data,
-                            texture.data_size.load(std::memory_order_relaxed));
+                        g_driver.submit_frame_pixels(predicted_time, eye_index,
+                                                     texture.width.load(std::memory_order_relaxed),
+                                                     texture.height.load(std::memory_order_relaxed),
+                                                     texture.format.load(std::memory_order_relaxed), texture.pixel_data,
+                                                     texture.data_size.load(std::memory_order_relaxed));
                     }
                 }
             }
@@ -383,10 +383,10 @@ static void FrameLoop() {
 // Public API
 // ---------------------------------------------------------------------------
 
-void SetDriver(const OxDriverCallbacks* callbacks) {
+void SetDriver(const OxDriver* driver) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    g_driver_callbacks = callbacks ? *callbacks : OxDriverCallbacks{};
-    g_driver_set = callbacks != nullptr;
+    g_driver = driver ? *driver : OxDriver{};
+    g_driver_set = driver != nullptr;
 }
 
 bool Initialize() {
@@ -395,13 +395,13 @@ bool Initialize() {
         return true;
     }
 
-    if (!g_driver_set || !g_driver_callbacks.initialize || !g_driver_callbacks.is_device_connected ||
-        !g_driver_callbacks.get_system_properties || !g_driver_callbacks.update_view) {
+    if (!g_driver_set || !g_driver.initialize || !g_driver.is_device_connected || !g_driver.get_system_properties ||
+        !g_driver.update_view) {
         spdlog::error("IPC server driver is not configured correctly");
         return false;
     }
 
-    if (!g_driver_callbacks.is_device_connected()) {
+    if (!g_driver.is_device_connected()) {
         spdlog::error("IPC server driver reported no device");
         return false;
     }
@@ -478,9 +478,7 @@ void Shutdown() {
 
 extern "C" {
 
-OX_IPC_SERVER_EXPORT void ox_ipc_server_set_driver(const OxDriverCallbacks* callbacks) {
-    ox::ipc::SetDriver(callbacks);
-}
+OX_IPC_SERVER_EXPORT void ox_ipc_server_set_driver(const OxDriver* driver) { ox::ipc::SetDriver(driver); }
 
 OX_IPC_SERVER_EXPORT int ox_ipc_server_initialize() { return ox::ipc::Initialize() ? 1 : 0; }
 

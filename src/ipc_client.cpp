@@ -484,23 +484,23 @@ static void SubmitFramePixels(XrTime frame_time, uint32_t eye_index, uint32_t wi
 }  // namespace ipc
 }  // namespace ox
 
-extern "C" OX_DRIVER_EXPORT int ox_driver_register(OxDriverCallbacks* callbacks) {
-    if (!callbacks) {
+extern "C" OX_DRIVER_EXPORT int ox_driver_register(OxDriver* driver) {
+    if (!driver) {
         return 0;
     }
 
-    *callbacks = {};
-    callbacks->initialize = []() -> int { return ox::ipc::Connect() ? 1 : 0; };
-    callbacks->shutdown = ox::ipc::Disconnect;
-    callbacks->is_device_connected = ox::ipc::IsConnected;
-    callbacks->get_system_properties = ox::ipc::GetSystemProperties;
-    callbacks->update_view = ox::ipc::UpdateView;
-    callbacks->update_devices = ox::ipc::UpdateDevices;
-    callbacks->get_input_state_boolean = ox::ipc::GetInputStateBoolean;
-    callbacks->get_input_state_float = ox::ipc::GetInputStateFloat;
-    callbacks->get_input_state_vector2f = ox::ipc::GetInputStateVector2f;
-    callbacks->get_interaction_profiles = ox::ipc::GetInteractionProfiles;
-    callbacks->on_session_state_changed = ox::ipc::NotifySessionState;
-    callbacks->submit_frame_pixels = ox::ipc::SubmitFramePixels;
+    *driver = {};
+    driver->initialize = []() -> int { return ox::ipc::Connect() ? 1 : 0; };
+    driver->shutdown = ox::ipc::Disconnect;
+    driver->is_device_connected = ox::ipc::IsConnected;
+    driver->get_system_properties = ox::ipc::GetSystemProperties;
+    driver->update_view = ox::ipc::UpdateView;
+    driver->update_devices = ox::ipc::UpdateDevices;
+    driver->get_input_state_bool = ox::ipc::GetInputStateBoolean;
+    driver->get_input_state_float = ox::ipc::GetInputStateFloat;
+    driver->get_input_state_vector2f = ox::ipc::GetInputStateVector2f;
+    driver->get_interaction_profiles = ox::ipc::GetInteractionProfiles;
+    driver->on_session_state_changed = ox::ipc::NotifySessionState;
+    driver->submit_frame_pixels = ox::ipc::SubmitFramePixels;
     return 1;
 }

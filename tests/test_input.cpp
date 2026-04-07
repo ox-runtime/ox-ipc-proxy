@@ -7,7 +7,7 @@ TEST_F(IpcTest, Input_Boolean_AvailableAndCorrectValue) {
     WaitForFrame();
 
     XrBool32 value = XR_FALSE;
-    EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/trigger/click", &value), XR_SUCCESS);
+    EXPECT_EQ(driver().get_input_state_bool(0, "/user/hand/left", "/input/trigger/click", &value), XR_SUCCESS);
     EXPECT_EQ(value, XR_TRUE);
 }
 
@@ -18,7 +18,7 @@ TEST_F(IpcTest, Input_Boolean_UnavailableComponent) {
     WaitForFrame();
 
     XrBool32 value = XR_FALSE;
-    EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/trigger/click", &value),
+    EXPECT_EQ(driver().get_input_state_bool(0, "/user/hand/left", "/input/trigger/click", &value),
               XR_ERROR_PATH_UNSUPPORTED);
 }
 
@@ -27,8 +27,7 @@ TEST_F(IpcTest, Input_Boolean_UnknownPath_ReturnsUnavailable) {
     WaitForFrame();
 
     XrBool32 value = XR_FALSE;
-    EXPECT_EQ(driver().get_input_state_boolean(0, "/user/hand/left", "/input/x/click", &value),
-              XR_ERROR_PATH_UNSUPPORTED);
+    EXPECT_EQ(driver().get_input_state_bool(0, "/user/hand/left", "/input/x/click", &value), XR_ERROR_PATH_UNSUPPORTED);
 }
 
 TEST_F(IpcTest, Input_Float_CorrectValue) {
