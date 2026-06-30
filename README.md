@@ -1,29 +1,24 @@
 # ox-ipc-proxy
 
-`ox-ipc-proxy` is the driver-shaped IPC layer between `ox-runtime` and the `ox` host process.
+`ox-ipc-proxy` is a driver-shaped IPC proxy (i.e. driver API in, driver API out, proxied over IPC), built for [ox](https://github.com/ox-runtime/ox).
 
-It builds two shared libraries:
+It is used to decouple the application process from the XR device driver, to protect the application process from driver instability or crashes.
 
-- `ox_ipc_client`: exports the low-level driver ABI expected by `ox-runtime` and acts as the IPC client
-- `ox_ipc_server`: accepts a real driver callback table from `ox.exe` and hosts the IPC server side
+The [ox](https://github.com/ox-runtime/ox) host process uses this to communicate with [ox-runtime](https://github.com/ox-runtime/ox-runtime) (which runs in the XR application process).
 
 ## Build
 
 ```bash
-cmake -S . -B build/win-x64
-cmake --build build/win-x64 --config Release
+cmake -S . -B build
+cmake --build build --config Release
 ```
 
-## Outputs
+This builds two shared libraries:
 
-Artifacts are written under `build/<platform>/bin`:
-
-- `ox_ipc_client.dll` (Windows), `libox_ipc_client.so` (Linux), `libox_ipc_client.dylib` (macOS)
-- `ox_ipc_server.dll` (Windows), `libox_ipc_server.so` (Linux), `libox_ipc_server.dylib` (macOS)
-
-The libraries use OS-native naming conventions and do not include version suffixes.
+- `ox_ipc_client`: exports the low-level [driver API](https://github.com/ox-runtime/ox-runtime/blob/main/include/ox_driver.h) expected by `ox-runtime`
+- `ox_ipc_server`: accepts a real driver from `ox.exe`
 
 ## Integration
 
 - `ox-runtime` loads `ox_ipc_client` as its default driver when no explicit override is present.
-- `ox.exe` loads `ox_ipc_server`, calls `ox_ipc_server_set_driver()` with the selected real driver callback table, then calls `ox_ipc_server_initialize()` to start serving clients.
+- `ox` host process loads `ox_ipc_server`, calls `ox_ipc_server_set_driver()` with the selected real driver.
