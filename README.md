@@ -9,7 +9,7 @@ The [ox](https://github.com/ox-runtime/ox) host process uses this to communicate
 ## Build
 
 ```bash
-cmake -S . -B build
+cmake -B build
 cmake --build build --config Release
 ```
 
