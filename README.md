@@ -1,6 +1,6 @@
 # ox-ipc-proxy
 
-`ox-ipc-proxy` is a driver-shaped IPC proxy (i.e. driver API in, driver API out, proxied over IPC), built for [ox](https://github.com/ox-runtime/ox).
+**ox-ipc-proxy** is a driver-shaped IPC proxy (i.e. driver API in, driver API out, proxied over IPC), built for [ox](https://github.com/ox-runtime/ox).
 
 It is used to decouple the application process from the XR device driver, to protect the application process from driver instability or crashes.
 
