@@ -18,6 +18,9 @@ This builds two shared libraries:
 - `ox_ipc_client`: exports the low-level [driver API](https://github.com/ox-runtime/ox-runtime/blob/main/include/ox_driver.h) expected by [ox-runtime](https://github.com/ox-runtime/ox-runtime).
 - `ox_ipc_server`: given a real driver by the [ox](https://github.com/ox-runtime/ox) host process.
 
+### Advanced Build
+If you want to build against a local [ox-runtime](https://github.com/ox-runtime/ox-runtime) checkout instead of the remote repository (that's fetched automatically), pass `-DOX_RUNTIME_REPO=/path/to/ox-runtime` when configuring cmake.
+
 ## Integration
 
 - `ox-runtime` loads `ox_ipc_client` as its default driver when no explicit override is present (for e.g. when *not* using `OX_USE_SIMULATOR`).
